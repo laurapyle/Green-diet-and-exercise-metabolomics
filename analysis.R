@@ -38,12 +38,38 @@ for (i in 1:nrow(check)) {
 }
 bad <- as.data.frame(check[check[,1]<3,])
 gooddata <- alldata[ ,!(colnames(alldata) %in% bad$id)]
+gooddata$Group[gooddata$Batch=="diet"] <- 1
+gooddata$Group[gooddata$Batch=="No-diet"] <- 0
 
 # prep the data # data pre-treatement autoscale
 md<-prep(log(gooddata[,-c(1:2)]),scale="uv",center=T)
-# prcomp function for principal components
-probject<-prcomp(~.,data=md,na.action=na.pass,scale=TRUE)
+# prcomp function for principal components - doesn't work b/c of missing data
+# probject<-prcomp(~.,data=md,na.action=na.pass,scale=TRUE)
 # need to use NIPALS PCA due to missing data
 a <- checkData(as.matrix(gooddata))
 probject <- pca(md,method="nipals",nPcs = 3)
-plotPcs(probject,pcs=1:3,type="scores",col=gooddata$Batch)
+plotPcs(probject,pcs=1:3,type="scores",col=gooddata$Group)
+
+# impute missing data
+temp <- gooddata[,-c(1:2)]
+forimput <- temp[,c(6689,1:6688)]
+nomiss <- MissingValues(gooddata[,-c(1:2)],column.cutoff = 0.95,group.cutoff = 0.7)
+# type summary(nomiss) shows 39 groups??
+
+# summarize data
+# need nonmissing data
+sumG <- GroupSummary(nomiss)
+##creating a vector log.mean to store the log mean of our QC samples
+log.mean<-log(sumG$mean)
+
+log.mean<-log(sumG$mean[4,])
+#create a vector Rsd 
+Rsd<-sumG$cv[4,]*100
+#create a data frame vis.data with two columns  
+vis.data<-data.frame(log.mean,Rsd)
+#initialize ggplot object# set plot aesthetics
+p<-ggplot(vis.data,aes(x=log.mean,y=Rsd))
+# to plot points for scatterplot
+p<-p+geom_point(alpha=.75,size=1)
+print(p)
+

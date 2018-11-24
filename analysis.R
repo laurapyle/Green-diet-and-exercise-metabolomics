@@ -68,67 +68,6 @@ for (i in 1:nrow(nomissdf)) {
    row.names(nomissdf)[i] <- nomissdf[i,1] 
 }
 
-# summarize data
-# this section of code has to do with QC samples, and don't have those in my file
-# so I modified this to use the actual samples
-sumG <- GroupSummary(nomissdf[,-1])
-##creating a vector log.mean to store the log mean of our samples for each group
-log.meangp0 <- log(sumG$means[1,])
-log.meangp1 <- log(sumG$means[2,])
-#create a vector Rsd 
-Rsdgp0 <-sumG$cv[1,]*100
-Rsdgp1 <-sumG$cv[2,]*100
-#create a data frame vis.data with two columns  
-vis.datagp0 <- data.frame(log.meangp0,Rsdgp0)
-vis.datagp1 <- data.frame(log.meangp1,Rsdgp1)
-#initialize ggplot object# set plot aesthetics
-p0 <-ggplot(vis.datagp0,aes(x=log.meangp0,y=Rsdgp0))
-# to plot points for scatterplot
-p0<-p0+geom_point(alpha=.75,size=1)
-print(p0)
-#initialize ggplot object# set plot aesthetics
-p1 <-ggplot(vis.datagp1,aes(x=log.meangp1,y=Rsdgp1))
-# to plot points for scatterplot
-p1<-p1+geom_point(alpha=.75,size=1)
-print(p1)
-
-# example to show Normalize function
-mydata.log <- LogTransform(nomissdf[,-1])$output
-for (i in 1:nrow(mydata.log)) {
-  row.names(mydata.log)[i] <- nomissdf[i,1] 
-}
-norm_is <- Normalise(mydata.log, method = "median",saveoutput = TRUE,outputname = "C:\\Temp\\norm")
-norm <- fread("C:\\Temp\\norm.csv",header=TRUE)
-for (i in 1:nrow(nomissdf)) {
-  row.names(norm)[i] <- nomissdf[i,1] 
-}
-# now summarize data after normalization
-# summarize data
-# this section of code has to do with QC samples, and don't have those in my file
-# so I modified this to use the actual samples
-sumG_norm <- GroupSummary(norm[,-1])
-##creating a vector log.mean to store the log mean of our samples for each group
-meangp0_norm <- (sumG_norm$means[1,])
-meangp1_norm <- (sumG_norm$means[2,])
-#create a vector Rsd 
-Rsdgp0_norm <-sumG_norm$cv[1,]*100
-Rsdgp1_norm <-sumG_norm$cv[2,]*100
-#create a data frame vis.data with two columns  
-vis.datagp0_norm <- data.frame(meangp0_norm,Rsdgp0_norm)
-vis.datagp1_norm <- data.frame(meangp1_norm,Rsdgp1_norm)
-#initialize ggplot object# set plot aesthetics
-p0_norm <-ggplot(vis.datagp0_norm,aes(x=meangp0_norm,y=Rsdgp0_norm))
-# to plot points for scatterplot
-p0_norm <- p0_norm+geom_point(alpha=.75,size=1)
-print(p0_norm)
-#initialize ggplot object# set plot aesthetics
-p1_norm <-ggplot(vis.datagp1_norm,aes(x=meangp1_norm,y=Rsdgp1_norm))
-# to plot points for scatterplot
-p1_norm <- p1_norm+geom_point(alpha=.75,size=1)
-print(p1_norm)
-# normalized data plots look very strange
-# is it possible to normalize using internal or external standards as done in demo?
-
 # paired comparison of non-normalized data
 comp <- TwoGroup(mydata.log, alternative = "two.sided",paired=TRUE)
 # think the IDs are wrong - need to be the same across conditions

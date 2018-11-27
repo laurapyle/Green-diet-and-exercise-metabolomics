@@ -92,7 +92,7 @@ TwoGroupPlots(gooddata.log[,-1],
               padjmethod = "BH",
               fcutoff = log(2),
               pcutoff = 0.05)
-# I don't understand why some compounds have NA's for p-values
+# some compounds have NA's for p-values
 
 #Linear model fit with moderated statistics
 modFit<-LinearModelFit(datamat=data.matrix(dietmat-nodietmat),
@@ -156,7 +156,7 @@ Dendrogram(gooddata.log)
 # is there an interaction between diet and PCOS?  PCO group seem like they are more similar regardless of diet
 
 # HeatMap 
-HeatMap(nomissdf,colramp=redgreen(75),margins = c(5,10),key=FALSE)
+HeatMap(nomissdf,colramp=redgreen(75),margins = c(5,10),key=FALSE,dendrogram = "both")
 
 # PCA plot
 PcaPlots(nomissdf.log,scale=TRUE, center=TRUE)

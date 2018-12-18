@@ -80,28 +80,6 @@ gooddata.group<-factor(gooddata.log[,1],levels=unique(gooddata.log[,1]))
 dietmat<-gooddata.log[which(gooddata.log[,1]==1),-1]
 nodietmat<-gooddata.log[which(gooddata.log[,1]==0),-1]
 
-# create dataset of demographics
-demo <- gooddata[c("id")]
-temp <- read.csv("H:\\Endocrinology\\Green\\Metabolomics papers\\Diet and exercise\\Data\\demographics.csv")
-temp <- temp[c("subject_id","age","gender","ethnicity","tanner","bmi_percentile")]
-temp$id <- gsub("6164-", "", temp$subject_id) 
-demo <- merge(demo,temp,by="id")
-demo <- demo %>% distinct(id, .keep_all=TRUE)
-demo$dummy <- rep(1,nrow(demo))
-demo$gender <- as.factor(demo$gender)
-demo$tanner <- as.factor(demo$tanner)
-demo$bmi_percentile <- as.numeric(as.character(demo$bmi_percentile))
-label(demo$age)="Age"
-label(demo$gender)="Gender"
-label(demo$ethnicity)="Ethnicity"
-label(demo$tanner)="Tanner"
-label(demo$bmi_percentile)="BMI %ile"
-
-
-# table 1
-tab1 <- final_table(data=demo,variables=c("age","gender","ethnicity","tanner","bmi_percentile"),
-                    ron=2,group=as.factor(demo$dummy),margin=2)
-
 #Linear model fit with ordinary statistics
 ordFit<-LinearModelFit(datamat=data.matrix(dietmat-nodietmat),
                        ruv2=FALSE,
@@ -175,6 +153,13 @@ tapply(gooddata$"1,7-DIMETHYL URIC ACID (M-H)-",gooddata$Group, summary)
 tapply(gooddata$"PHENYLPYRUVIC ACID (M-H)-",gooddata$Group, summary)
 tapply(gooddata$"PIMELIC ACID (M-H)-",gooddata$Group, summary)
 
+# looking at direction of differences
+MetBoxPlots(gooddata.log,"ISOLEUCINE (M+H)+")
+MetBoxPlots(gooddata.log,"ARACHIDONIC ACID (M-H)-")
+
+  
+
+
 # Dendrogram
 Dendrogram(gooddata.log)
 # is there an interaction between diet and PCOS?  PCO group seem like they are more similar regardless of diet
@@ -215,6 +200,31 @@ nomiss.plsda$id <- gsub("C", "", nomiss.plsda$id)
 nomiss.plsda$id <- gsub("diet", "", nomiss.plsda$id)
 nomiss.plsda$id <- gsub("No-", "", nomiss.plsda$id)
 
+# create dataset of demographics
+demo <- gooddata.plsda[c("PCOS")]
+demo$id <- row.names(nomiss.plsda)
+demo$id <- gsub("P", "", nomiss.plsda$id)
+demo$id <- gsub("C", "", nomiss.plsda$id)
+demo$id <- gsub("diet", "", nomiss.plsda$id)
+demo$id <- gsub("No-", "", nomiss.plsda$id)
+temp <- read.csv("H:\\Endocrinology\\Green\\Metabolomics papers\\Diet and exercise\\Data\\demographics.csv")
+temp <- temp[c("subject_id","age","gender","ethnicity","tanner","bmi_percentile")]
+temp$id <- gsub("6164-", "", temp$subject_id) 
+demo <- merge(demo,temp,by="id")
+demo <- demo %>% distinct(id, .keep_all=TRUE)
+demo$dummy <- rep(1,nrow(demo))
+demo$gender <- as.factor(demo$gender)
+demo$tanner <- as.factor(demo$tanner)
+demo$bmi_percentile <- as.numeric(as.character(demo$bmi_percentile))
+label(demo$age)="Age"
+label(demo$gender)="Gender"
+label(demo$ethnicity)="Ethnicity"
+label(demo$tanner)="Tanner"
+label(demo$bmi_percentile)="BMI %ile"
+
+# table 1
+tab1 <- final_table(data=demo,variables=c("age","gender","ethnicity","tanner","bmi_percentile"),
+                    ron=2,group=as.factor(demo$PCOS),margin=2)
 
 # following case study code - for repeated measures
 # http://mixomics.org/mixmc/case-study-hmp-bodysites-repeated-measures/
@@ -222,7 +232,8 @@ splsda.diet = splsda(X = nomiss.plsda[,-c(1,6689:6690)], Y=as.factor(nomiss.plsd
                    ncomp = 2, multilevel = as.factor(nomiss.plsda$id),keepX = c(200, 200))
 plotIndiv(splsda.diet, comp = c(1,2),
           ind.names = FALSE, 
-          ellipse = TRUE, legend = TRUE)
+          ellipse = TRUE, legend = FALSE, title="")
+selectVar(splsda.diet)
 set.seed(34)  # for reproducible results for this code
 diet.perf.splsda = perf(splsda.diet, validation = 'Mfold', folds = 5, 
                            progressBar = FALSE, nrepeat = 10, dist = 'max.dist',auc=TRUE)

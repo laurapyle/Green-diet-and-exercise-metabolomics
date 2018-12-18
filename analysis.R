@@ -10,6 +10,7 @@ library(stringr)
 library(data.table)
 library(dplyr)
 library(mixOmics)
+library(Hmisc)
 
 # read and transpose data
 mydata <- read_excel(path="H:\\Endocrinology\\Green\\Metabolomics papers\\Diet and exercise\\Data\\raw data for metaboanalyst no null.xlsx"
@@ -18,6 +19,8 @@ mydata <- as.data.frame(mydata)
 mydata <- mydata[!is.na(mydata$Name),]
 alldata <- as.data.frame(t(mydata[,-1]))
 colnames(alldata) <- mydata$Name
+
+source("C:\\Users\\pylell\\Documents\\GitHub\\General-code\\temp_table1.r")
 
 # create variable for ID
 for (i in 1:nrow(alldata)) {
@@ -31,9 +34,6 @@ alldata$id <- gsub("PCOSHS6164-", "", alldata$id)
 alldata$id <- gsub("Control6164-", "", alldata$id)
 alldata$uniqueid <- paste(substr(alldata$longid,1,1),alldata$Batch,alldata$id,sep="")
 row.names(alldata) <- alldata$uniqueid
-# not working to set rownames equal to ID b/c doesn't allow duplicate rownames
-# how else do you specify paired nature of data?
-View(alldata[c("Batch","longid","id","uniqueid")])
 
 # convert to numeric
 num <- alldata[ ,!(colnames(alldata) %in% c("Batch","id","longid","uniqueid"))]
@@ -80,10 +80,33 @@ gooddata.group<-factor(gooddata.log[,1],levels=unique(gooddata.log[,1]))
 dietmat<-gooddata.log[which(gooddata.log[,1]==1),-1]
 nodietmat<-gooddata.log[which(gooddata.log[,1]==0),-1]
 
+# create dataset of demographics
+demo <- gooddata[c("id")]
+temp <- read.csv("H:\\Endocrinology\\Green\\Metabolomics papers\\Diet and exercise\\Data\\demographics.csv")
+temp <- temp[c("subject_id","age","gender","ethnicity","tanner","bmi_percentile")]
+temp$id <- gsub("6164-", "", temp$subject_id) 
+demo <- merge(demo,temp,by="id")
+demo <- demo %>% distinct(id, .keep_all=TRUE)
+demo$dummy <- rep(1,nrow(demo))
+demo$gender <- as.factor(demo$gender)
+demo$tanner <- as.factor(demo$tanner)
+demo$bmi_percentile <- as.numeric(as.character(demo$bmi_percentile))
+label(demo$age)="Age"
+label(demo$gender)="Gender"
+label(demo$ethnicity)="Ethnicity"
+label(demo$tanner)="Tanner"
+label(demo$bmi_percentile)="BMI %ile"
+
+
+# table 1
+tab1 <- final_table(data=demo,variables=c("age","gender","ethnicity","tanner","bmi_percentile"),
+                    ron=2,group=as.factor(demo$dummy),margin=2)
+
 #Linear model fit with ordinary statistics
 ordFit<-LinearModelFit(datamat=data.matrix(dietmat-nodietmat),
                        ruv2=FALSE,
-                       factormat=matrix(1,nrow=nrow(dietmat)),outputname = "C:\\Temp\\ordFit",
+                       factormat=matrix(1,nrow=nrow(dietmat)),
+                       outputname = "H:\\Endocrinology\\Green\\Metabolomics papers\\Diet and exercise\\Data\\ordFit",
                        saveoutput = TRUE)
 TwoGroupPlots(gooddata.log[,-1],
               tstats = ordFit$t[,1],
@@ -98,7 +121,8 @@ TwoGroupPlots(gooddata.log[,-1],
 modFit<-LinearModelFit(datamat=data.matrix(dietmat-nodietmat),
                        ruv2=FALSE,
                        moderated=TRUE,
-                       factormat=matrix(1,nrow=nrow(dietmat)),outputname = "C:\\Temp\\modFit",
+                       factormat=matrix(1,nrow=nrow(dietmat)),
+                       outputname = "H:\\Endocrinology\\Green\\Metabolomics papers\\Diet and exercise\\Data\\modFit",
                        saveoutput = TRUE)
 TwoGroupPlots(gooddata.log[,-1],
               tstats = modFit$t[,1],
@@ -174,8 +198,97 @@ a <- checkData(as.matrix(gooddata.format))
 probject <- pca(md,method="nipals",nPcs = 3)
 plotPcs(probject,pcs=1:3,type="scores",col=as.factor(gooddata.format$Group))
 
-# PLS-DA
-splsda.srbct <- splsda(X=gooddata.log[,-1], Y=as.factor(gooddata.log$Group), ncomp = 2, keepX = c(100, 100))
-plotIndiv(splsda.srbct,ind.names=as.factor(gooddata.log$Group),legend=TRUE)
-selectVar(splsda.srbct)
+# create dataset for PLS-DA
+# create variable for PCO status
+gooddata.plsda <- gooddata.format
+for (i in 1:nrow(gooddata.plsda)) {
+  gooddata.plsda$PCOS[i] <- ifelse(substring(row.names(gooddata.plsda[i,]),1,1)=="P",1,0)
+}
+# reorder dataset
+gooddata.plsda <- gooddata.plsda[,c(1,6690,2:6689)]
+# do the same for the nomiss dataset
+nomiss.plsda <- nomissdf
+nomiss.plsda$PCOS <- substring(row.names(nomiss.plsda),1,1)
+nomiss.plsda$id <- row.names(nomiss.plsda)
+nomiss.plsda$id <- gsub("P", "", nomiss.plsda$id)
+nomiss.plsda$id <- gsub("C", "", nomiss.plsda$id)
+nomiss.plsda$id <- gsub("diet", "", nomiss.plsda$id)
+nomiss.plsda$id <- gsub("No-", "", nomiss.plsda$id)
+
+
+# following case study code - for repeated measures
+# http://mixomics.org/mixmc/case-study-hmp-bodysites-repeated-measures/
+splsda.diet = splsda(X = nomiss.plsda[,-c(1,6689:6690)], Y=as.factor(nomiss.plsda$Group), 
+                   ncomp = 2, multilevel = as.factor(nomiss.plsda$id),keepX = c(200, 200))
+plotIndiv(splsda.diet, comp = c(1,2),
+          ind.names = FALSE, 
+          ellipse = TRUE, legend = TRUE)
+set.seed(34)  # for reproducible results for this code
+diet.perf.splsda = perf(splsda.diet, validation = 'Mfold', folds = 5, 
+                           progressBar = FALSE, nrepeat = 10, dist = 'max.dist',auc=TRUE)
+diet.perf.splsda$error.rate
+plot(diet.perf.splsda)
+head(selectVar(splsda.diet, comp = 1)$value) 
+cim(splsda.diet, row.sideColors = color.mixo(as.factor(nomiss.plsda$Group)))
+diet.perf.splsda.loo = perf(splsda.diet, validation = 'loo', 
+                        progressBar = FALSE, auc=TRUE)
+diet.auroc <- auroc(splsda.diet)
+
+
+# now for pcos
+# will not converge
+splsda.pcos = splsda(X = nomiss.plsda[,-c(1,6689:6690)], Y=as.factor(nomiss.plsda$PCOS), 
+                     ncomp = 2, multilevel = as.factor(nomiss.plsda$id),max.iter = 10000,
+                     keepX = c(10, 10))
+a <- tune.splsda(X = nomiss.plsda[,-c(1,6689:6690)], Y=as.factor(nomiss.plsda$PCOS), 
+            ncomp = 2, multilevel = as.factor(nomiss.plsda$id))
+plotIndiv(splsda.pcos, comp = c(1,2),
+          ind.names = FALSE, 
+          ellipse = TRUE, legend = TRUE)
+set.seed(34)  # for reproducible results for this code
+pcos.perf.splsda = perf(splsda.pcos, validation = 'Mfold', folds = 5, 
+                        progressBar = FALSE, nrepeat = 10, dist = 'max.dist',auc=TRUE)
+pcos.perf.splsda$error.rate
+plot(pcos.perf.splsda)
+head(selectVar(splsda.pcos, comp = 1)$value) 
+cim(splsda.pcos, row.sideColors = color.mixo(as.factor(nomiss.plsda$PCOS)))
+
+# BELOW WAS MY ATTEMPT AT PLS-DA, DID NOT REALIZE THERE WAS AN OPTION FOR 
+# REPEATED MEASURES
+# PLS-DA - by diet
+splsda.diet <- splsda(X=gooddata.plsda[,-(1:2)], Y=as.factor(gooddata.plsda$Group), ncomp = 2, 
+                      keepX = c(100, 100))
+plotIndiv(splsda.diet,ind.names=as.factor(gooddata.plsda$Group),legend=TRUE,ellipse=TRUE)
+selectVar(splsda.diet)
+# plot by diet but code by PCO
+plotIndiv(splsda.diet,ind.names=as.factor(gooddata.plsda$PCOS),legend=TRUE,ellipse=TRUE)
+
+# evaluate performance
+splsda.nomiss.diet <- splsda(X=nomiss.plsda[,-c(1,6689:6690)], Y=as.factor(nomiss.plsda$Group), ncomp = 2, 
+                             keepX = c(100, 100))
+plotIndiv(splsda.nomiss.diet,ind.names=as.factor(nomiss.plsda$Group),legend=TRUE,ellipse=TRUE)
+selectVar(splsda.nomiss.diet)
+set.seed(3654)
+perf.diet <- perf(splsda.nomiss.diet,validation = "Mfold",dist="all",folds=5,auc=TRUE,nrepeat=10)
+plot(perf.diet, criterion = "R2", layout = c(2, 2))
+
+# PLS-DA - by PCOS
+splsda.pcos <- splsda(X=gooddata.plsda[,-(1:2)], Y=as.factor(gooddata.plsda$PCOS), ncomp = 2, 
+                      keepX = c(100, 100))
+plotIndiv(splsda.pcos,ind.names=as.factor(gooddata.plsda$PCOS),legend=TRUE,ellipse = TRUE)
+selectVar(splsda.pcos)
+# plot by PCO but code by diet
+plotIndiv(splsda.pcos,ind.names=as.factor(gooddata.plsda$Group),legend=TRUE,ellipse = TRUE)
+# evaluate performance
+splsda.nomiss.pcos <- splsda(X=nomiss.plsda[,-c(1,6689:6690)], Y=as.factor(nomiss.plsda$PCOS), ncomp = 2, 
+                             keepX = c(100, 100))
+plotIndiv(splsda.nomiss.pcos,ind.names=as.factor(nomiss.plsda$PCOS),legend=TRUE,ellipse = TRUE)
+selectVar(splsda.nomiss.pcos)
+set.seed(3654)
+perf.pcos <- perf(splsda.nomiss.pcos,validation = "Mfold",folds=5,auc=TRUE,nrepeat=10)
+plot(perf.pcos, criterion = "R2", layout = c(2, 2))
+
+# ROC for splsda
+auroc(splsda.srbct,newdata=splsda.srbct$input.X,outcome.test = as.factor(splsda.srbct$Y),plot=TRUE)
+auroc(splsda.pcos,newdata=splsda.pcos$input.X,outcome.test = as.factor(splsda.pcos$Y),plot=TRUE)
 

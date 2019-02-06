@@ -13,8 +13,10 @@ library(mixOmics)
 library(Hmisc)
 
 # read and transpose data
-mydata <- read_excel(path="H:\\Endocrinology\\Green\\Metabolomics papers\\Diet and exercise\\Data\\raw data for metaboanalyst no null.xlsx"
-                     ,sheet=1 )
+#mydata <- read_excel(path="H:\\Endocrinology\\Green\\Metabolomics papers\\Diet and exercise\\Data\\raw data for metaboanalyst no null.xlsx",sheet=1 )
+# read in new dataset from Haseeb with identified unknowns
+mydata <- read_excel(path="H:\\Endocrinology\\Green\\Metabolomics papers\\Diet and exercise\\Data\\raw data for metaboanalyst no null.xlsx",sheet=1 )
+
 mydata <- as.data.frame(mydata)
 mydata <- mydata[!is.na(mydata$Name),]
 alldata <- as.data.frame(t(mydata[,-1]))
@@ -180,7 +182,7 @@ md<-prep(log(gooddata.format[,-c(1)]),scale="uv",center=T)
 # probject<-prcomp(~.,data=md,na.action=na.pass,scale=TRUE)
 # need to use NIPALS PCA due to missing data
 a <- checkData(as.matrix(gooddata.format))
-probject <- pca(md,method="nipals",nPcs = 3)
+probject <- pcaMethods::pca(md,method="nipals",nPcs = 3)
 plotPcs(probject,pcs=1:3,type="scores",col=as.factor(gooddata.format$Group))
 
 # create dataset for PLS-DA
@@ -263,6 +265,7 @@ pcos.perf.splsda$error.rate
 plot(pcos.perf.splsda)
 head(selectVar(splsda.pcos, comp = 1)$value) 
 cim(splsda.pcos, row.sideColors = color.mixo(as.factor(nomiss.plsda$PCOS)))
+pcos.auroc <- auroc(splsda.pcos)
 
 # BELOW WAS MY ATTEMPT AT PLS-DA, DID NOT REALIZE THERE WAS AN OPTION FOR 
 # REPEATED MEASURES

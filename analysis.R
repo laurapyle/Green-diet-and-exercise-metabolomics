@@ -228,7 +228,6 @@ label(demo$bmi_percentile)="BMI %ile"
 tab1 <- final_table(data=demo,variables=c("age","gender","ethnicity","tanner","bmi_percentile"),
                     ron=2,group=as.factor(demo$PCOS),margin=2)
 
-# following case study code - for repeated measures
 # http://mixomics.org/mixmc/case-study-hmp-bodysites-repeated-measures/
 splsda.diet = splsda(X = nomiss.plsda[,-c(1,6689:6690)], Y=as.factor(nomiss.plsda$Group), 
                    ncomp = 2, multilevel = as.factor(nomiss.plsda$id),keepX = c(200, 200))
@@ -266,41 +265,6 @@ plot(pcos.perf.splsda)
 head(selectVar(splsda.pcos, comp = 1)$value) 
 cim(splsda.pcos, row.sideColors = color.mixo(as.factor(nomiss.plsda$PCOS)))
 pcos.auroc <- auroc(splsda.pcos)
-
-# BELOW WAS MY ATTEMPT AT PLS-DA, DID NOT REALIZE THERE WAS AN OPTION FOR 
-# REPEATED MEASURES
-# PLS-DA - by diet
-splsda.diet <- splsda(X=gooddata.plsda[,-(1:2)], Y=as.factor(gooddata.plsda$Group), ncomp = 2, 
-                      keepX = c(100, 100))
-plotIndiv(splsda.diet,ind.names=as.factor(gooddata.plsda$Group),legend=TRUE,ellipse=TRUE)
-selectVar(splsda.diet)
-# plot by diet but code by PCO
-plotIndiv(splsda.diet,ind.names=as.factor(gooddata.plsda$PCOS),legend=TRUE,ellipse=TRUE)
-
-# evaluate performance
-splsda.nomiss.diet <- splsda(X=nomiss.plsda[,-c(1,6689:6690)], Y=as.factor(nomiss.plsda$Group), ncomp = 2, 
-                             keepX = c(100, 100))
-plotIndiv(splsda.nomiss.diet,ind.names=as.factor(nomiss.plsda$Group),legend=TRUE,ellipse=TRUE)
-selectVar(splsda.nomiss.diet)
-set.seed(3654)
-perf.diet <- perf(splsda.nomiss.diet,validation = "Mfold",dist="all",folds=5,auc=TRUE,nrepeat=10)
-plot(perf.diet, criterion = "R2", layout = c(2, 2))
-
-# PLS-DA - by PCOS
-splsda.pcos <- splsda(X=gooddata.plsda[,-(1:2)], Y=as.factor(gooddata.plsda$PCOS), ncomp = 2, 
-                      keepX = c(100, 100))
-plotIndiv(splsda.pcos,ind.names=as.factor(gooddata.plsda$PCOS),legend=TRUE,ellipse = TRUE)
-selectVar(splsda.pcos)
-# plot by PCO but code by diet
-plotIndiv(splsda.pcos,ind.names=as.factor(gooddata.plsda$Group),legend=TRUE,ellipse = TRUE)
-# evaluate performance
-splsda.nomiss.pcos <- splsda(X=nomiss.plsda[,-c(1,6689:6690)], Y=as.factor(nomiss.plsda$PCOS), ncomp = 2, 
-                             keepX = c(100, 100))
-plotIndiv(splsda.nomiss.pcos,ind.names=as.factor(nomiss.plsda$PCOS),legend=TRUE,ellipse = TRUE)
-selectVar(splsda.nomiss.pcos)
-set.seed(3654)
-perf.pcos <- perf(splsda.nomiss.pcos,validation = "Mfold",folds=5,auc=TRUE,nrepeat=10)
-plot(perf.pcos, criterion = "R2", layout = c(2, 2))
 
 # ROC for splsda
 auroc(splsda.srbct,newdata=splsda.srbct$input.X,outcome.test = as.factor(splsda.srbct$Y),plot=TRUE)

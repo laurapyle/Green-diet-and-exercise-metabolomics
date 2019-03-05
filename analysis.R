@@ -246,6 +246,14 @@ diet.perf.splsda.loo = perf(splsda.diet, validation = 'loo',
                         progressBar = FALSE, auc=TRUE)
 diet.auroc <- auroc(splsda.diet)
 
+# biplot with top 20 compounds
+# following code on mixomics but doesn't work
+splsda.diet20 = splsda(X = nomiss.plsda[,-c(1,6689:6690)], Y=as.factor(nomiss.plsda$Group), 
+                     ncomp = 2, multilevel = as.factor(nomiss.plsda$id),keepX = c(20, 20))
+ind.coord <- splsda.diet20$variates$X[, 1:2]
+var.coord = plotVar(splsda.diet20,var.names = FALSE)$x
+biplot(ind.coord,var.coord,xlabs=as.factor(nomiss.plsda$Group))
+absline(h=0,v=0,lty=2)
 
 # now for pcos
 # will not converge

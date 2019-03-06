@@ -251,9 +251,9 @@ diet.auroc <- auroc(splsda.diet)
 splsda.diet20 = splsda(X = nomiss.plsda[,-c(1,6689:6690)], Y=as.factor(nomiss.plsda$Group), 
                      ncomp = 2, multilevel = as.factor(nomiss.plsda$id),keepX = c(20, 20))
 ind.coord <- splsda.diet20$variates$X[, 1:2]
-var.coord = plotVar(splsda.diet20,var.names = FALSE)$x
+var.coord = plotVar(splsda.diet20,var.names = FALSE)[,c("x","y")]
 biplot(ind.coord,var.coord,xlabs=as.factor(nomiss.plsda$Group))
-absline(h=0,v=0,lty=2)
+abline(h=0,v=0,lty=2)
 
 # now for pcos
 # will not converge

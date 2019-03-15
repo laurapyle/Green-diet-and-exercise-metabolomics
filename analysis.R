@@ -23,6 +23,8 @@ alldata <- as.data.frame(t(mydata[,-1]))
 colnames(alldata) <- mydata$Name
 
 source("C:\\Users\\pylell\\Documents\\GitHub\\General-code\\temp_table1.r")
+source("C:\\Users\\pylell\\Documents\\GitHub\\General-code\\foldchange.r")
+source("C:\\Users\\pylell\\Documents\\GitHub\\General-code\\editcolnames.r")
 
 # create variable for ID
 for (i in 1:nrow(alldata)) {
@@ -63,6 +65,7 @@ gooddata <- gooddata[with(gooddata, order(Group, id)),  ]
 temp <- gooddata[,-c(1:3)]
 cn <- ncol(temp)
 gooddata.format <- temp[,c(cn,1:(cn-1))]
+gooddata.format_nounk <- gooddata.format[, -grep("UNK",colnames(gooddata.format))]
 
 # impute missing data
 nomiss <- MissingValues(gooddata.format,column.cutoff = 0.95,group.cutoff = 0.7,saveoutput = TRUE,
@@ -72,15 +75,22 @@ nomissdf <- nomissdf[,-1]
 for (i in 1:nrow(nomissdf)) {
   row.names(nomissdf)[i] <- row.names(gooddata.format)[i] 
 }
+nomissdf <- as.data.frame(nomissdf)
+nomissdf_nounk <-  nomissdf[, -grep("UNK",colnames(nomissdf))]
 nomissdf.log <- LogTransform(nomissdf)$output
 
 # log transform gooddata
 gooddata.log <- LogTransform(gooddata.format)$output
+gooddata.log_nounk <- gooddata.log[, -grep("UNK",colnames(gooddata.log))]
 
 #Separating by diet/no diet
 gooddata.group<-factor(gooddata.log[,1],levels=unique(gooddata.log[,1]))
 dietmat<-gooddata.log[which(gooddata.log[,1]==1),-1]
 nodietmat<-gooddata.log[which(gooddata.log[,1]==0),-1]
+
+# creat dataframes with unknowns removed
+dietmat_nounk <- dietmat[, -grep("UNK",colnames(dietmat))]
+nodietmat_nounk <- nodietmat[, -grep("UNK",colnames(nodietmat))]
 
 #Linear model fit with ordinary statistics
 ordFit<-LinearModelFit(datamat=data.matrix(dietmat-nodietmat),
@@ -120,8 +130,26 @@ TwoGroupPlots(gooddata.log[,-1],
               fcutoff = log(1),
               pcutoff = 0.05)
 
+#Linear model fit with moderated statistics - exclude unknowns
+modFit<-LinearModelFit(datamat=data.matrix(dietmat_nounk-nodietmat_nounk),
+                       ruv2=FALSE,
+                       moderated=TRUE,
+                       factormat=matrix(1,nrow=nrow(dietmat)),
+                       outputname = "H:\\Endocrinology\\Green\\Metabolomics papers\\Diet and exercise\\Data\\modFit_nounk",
+                       saveoutput = TRUE)
+# get fold change for knowns
+fc_nounk <- as.data.frame(FoldChange(gooddata.log_nounk,paired=TRUE))
+fc_nounk$Compound <- rownames(fc_nounk)
+fc_nounk <- as.data.frame(fc_nounk[,-1])
+colnames(fc_nounk) <- c("FC","X")
+# merge fold change with results of moderated t-test for input into Metscape
+temp <- read.csv("H:\\Endocrinology\\Green\\Metabolomics papers\\Diet and exercise\\Data\\modFit_nounk.csv")
+metscape <- merge(temp,fc_nounk,by="X")
+write.csv(metscape,"H:\\Endocrinology\\Green\\Metabolomics papers\\Diet and exercise\\Data\\formetscape.csv")
+
 # Volcano plot
-VolcanoPlot(folds=modFit$coef, pvals=modFit$p.value,plimit=0.05)
+modfit_nona <- modFit[!is.na(modFit$p.value),]
+VolcanoPlot(folds=modfit_nona$coef, pvals=modfit_nona$p.value,plimit=0.05)
 # VolcanoPlot doesn't like NA's for p-values
 
 # Box plots of specific metabolites that have NA for p-value
@@ -159,15 +187,12 @@ tapply(gooddata$"PIMELIC ACID (M-H)-",gooddata$Group, summary)
 MetBoxPlots(gooddata.log,"ISOLEUCINE (M+H)+")
 MetBoxPlots(gooddata.log,"ARACHIDONIC ACID (M-H)-")
 
-  
-
-
 # Dendrogram
-Dendrogram(gooddata.log)
+Dendrogram(gooddata.log_nounk)
 # is there an interaction between diet and PCOS?  PCO group seem like they are more similar regardless of diet
 
 # HeatMap 
-HeatMap(nomissdf,colramp=redgreen(75),margins = c(5,10),key=FALSE,dendrogram = "both")
+HeatMap(nomissdf_nounk,colramp=redgreen(75),margins = c(5,10),key=FALSE,dendrogram = "both")
 
 # PCA plot
 PcaPlots(nomissdf.log,scale=TRUE, center=TRUE)
@@ -194,6 +219,11 @@ for (i in 1:nrow(gooddata.plsda)) {
 # reorder dataset
 gooddata.plsda <- gooddata.plsda[,c(1,6690,2:6689)]
 # do the same for the nomiss dataset
+nomissdf <- fread("C:\\Temp\\newoutput.csv",header=TRUE)
+nomissdf <- nomissdf[,-1]
+for (i in 1:nrow(nomissdf)) {
+  row.names(nomissdf)[i] <- row.names(gooddata.format)[i] 
+}
 nomiss.plsda <- nomissdf
 nomiss.plsda$PCOS <- substring(row.names(nomiss.plsda),1,1)
 nomiss.plsda$id <- row.names(nomiss.plsda)
@@ -226,7 +256,7 @@ label(demo$bmi_percentile)="BMI %ile"
 
 # table 1
 tab1 <- final_table(data=demo,variables=c("age","gender","ethnicity","tanner","bmi_percentile"),
-                    ron=2,group=as.factor(demo$PCOS),margin=2)
+                    ron=2,group=as.factor(demo$dummy),margin=2)
 
 # http://mixomics.org/mixmc/case-study-hmp-bodysites-repeated-measures/
 splsda.diet = splsda(X = nomiss.plsda[,-c(1,6689:6690)], Y=as.factor(nomiss.plsda$Group), 
@@ -234,7 +264,8 @@ splsda.diet = splsda(X = nomiss.plsda[,-c(1,6689:6690)], Y=as.factor(nomiss.plsd
 plotIndiv(splsda.diet, comp = c(1,2),
           ind.names = FALSE, 
           ellipse = TRUE, legend = FALSE, title="")
-selectVar(splsda.diet)
+listvar <- selectVar(splsda.diet)
+listvar <- listvar$name[-grep("UNK",listvar$name)]
 set.seed(34)  # for reproducible results for this code
 diet.perf.splsda = perf(splsda.diet, validation = 'Mfold', folds = 5, 
                            progressBar = FALSE, nrepeat = 10, dist = 'max.dist',auc=TRUE)
@@ -247,13 +278,24 @@ diet.perf.splsda.loo = perf(splsda.diet, validation = 'loo',
 diet.auroc <- auroc(splsda.diet)
 
 # biplot with top 20 compounds
-# following code on mixomics but doesn't work
 splsda.diet20 = splsda(X = nomiss.plsda[,-c(1,6689:6690)], Y=as.factor(nomiss.plsda$Group), 
                      ncomp = 2, multilevel = as.factor(nomiss.plsda$id),keepX = c(20, 20))
 ind.coord <- splsda.diet20$variates$X[, 1:2]
 var.coord = plotVar(splsda.diet20,var.names = FALSE)[,c("x","y")]
 biplot(ind.coord,var.coord,xlabs=as.factor(nomiss.plsda$Group))
 abline(h=0,v=0,lty=2)
+
+# boxplots of known compounds from the top 200 from PLSDA
+MetBoxPlots(gooddata.log,"2,3-BISPHOSPHO-D-GLYCERIC ACID (M-H)-")
+MetBoxPlots(gooddata.log,"3,4-DIHYDROXYBENZOIC ACID (M-H)-")
+MetBoxPlots(gooddata.log,"TAURINE (M-H)-")
+MetBoxPlots(gooddata.log,"INOSINE 5'-DIPHOSPHATE (M-H)-")
+MetBoxPlots(gooddata.log,"MEVALONIC ACID (M-H)-")
+MetBoxPlots(gooddata.log,"BENZOIC ACID (M-H)-")
+MetBoxPlots(gooddata.log,"DETHIOBIOTIN (M+H)+[-H2O]")
+MetBoxPlots(gooddata.log,"O-SUCCINYL-L-HOMOSERINE (M-H)-")
+MetBoxPlots(gooddata.log,"CYSTEIC ACID (M-H)-")
+MetBoxPlots(gooddata.log,"DIHYDROXYFUMARIC ACID (M-H)-")
 
 # now for pcos
 # will not converge

@@ -186,6 +186,7 @@ tapply(gooddata$"PIMELIC ACID (M-H)-",gooddata$Group, summary)
 # looking at direction of differences
 MetBoxPlots(gooddata.log,"ISOLEUCINE (M+H)+")
 MetBoxPlots(gooddata.log,"ARACHIDONIC ACID (M-H)-")
+MetBoxPlots(gooddata.log,"ISOCITRIC ACID (M-H)-")
 
 # Dendrogram
 Dendrogram(gooddata.log_nounk)

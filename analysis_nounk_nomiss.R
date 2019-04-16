@@ -71,10 +71,12 @@ nomiss <- MissingValues(gooddata.format,column.cutoff = 0.95,group.cutoff = 0.7,
                         outputname = "C:\\Temp\\newoutput",complete.matrix = TRUE)
 nomissdf <- fread("C:\\Temp\\newoutput.csv",header=TRUE)
 nomissdf <- nomissdf[,-1]
+nomissdf <- as.data.frame(nomissdf)
 for (i in 1:nrow(nomissdf)) {
   row.names(nomissdf)[i] <- row.names(gooddata.format)[i] 
 }
-nomissdf <- as.data.frame(nomissdf)
+
+
 nomissdf_nounk <-  nomissdf[, -grep("UNK",colnames(nomissdf))]
 nomissdf_nounk.log <- LogTransform(nomissdf_nounk)$output
 
@@ -120,6 +122,12 @@ TwoGroupPlots(nomissdf_nounk.log[,-1],
               padjmethod = "BH",
               fcutoff = log(1),
               pcutoff = 0.05)
+
+# BoxPlots for significant compounds
+sig <- read.csv(file="H:\\Endocrinology\\Green\\Metabolomics papers\\Diet and exercise\\Data\\modFit.csv")
+sig <- sig[sig$t.p.value.x1<0.05,]
+keep <- as.matrix(sig$X)
+
 
 # get fold change for knowns
 fc_nounk <- as.data.frame(FoldChange(nomissdf_nounk.log,paired=TRUE))
@@ -168,7 +176,7 @@ nomiss.plsda$id <- gsub("No-", "", nomiss.plsda$id)
 nomiss.plsda <- nomiss.plsda[,c(1,167,168,2:166)]
 
 # create dataset of demographics
-demo <- gooddata.plsda[c("PCOS")]
+demo <- nomiss.plsda[c("PCOS")]
 demo$id <- row.names(nomiss.plsda)
 demo$id <- gsub("P", "", nomiss.plsda$id)
 demo$id <- gsub("C", "", nomiss.plsda$id)
@@ -188,6 +196,10 @@ label(demo$gender)="Gender"
 label(demo$ethnicity)="Ethnicity"
 label(demo$tanner)="Tanner"
 label(demo$bmi_percentile)="BMI %ile"
+
+# recode double race person to 1
+demo$ethnicity[demo$ethnicity=="1,2"] <- 1
+demo$ethnicity <- droplevels(demo$ethnicity)
 
 # table 1
 tab1 <- final_table(data=demo,variables=c("age","gender","ethnicity","tanner","bmi_percentile"),
@@ -264,8 +276,8 @@ cim(splsda.pcos, row.sideColors = color.mixo(as.factor(nomiss.plsda$PCOS)))
 pcos.auroc <- auroc(splsda.pcos)
 
 # ROC for splsda
-auroc(splsda.srbct,newdata=splsda.srbct$input.X,outcome.test = as.factor(splsda.srbct$Y),plot=TRUE)
-auroc(splsda.pcos,newdata=splsda.pcos$input.X,outcome.test = as.factor(splsda.pcos$Y),plot=TRUE)
+#auroc(splsda.srbct,newdata=splsda.srbct$input.X,outcome.test = as.factor(splsda.srbct$Y),plot=TRUE)
+#auroc(splsda.pcos,newdata=splsda.pcos$input.X,outcome.test = as.factor(splsda.pcos$Y),plot=TRUE)
 # why is this not converging?
 # probably because there are only a handful of controls
 nomiss.plsda_pcos.log <- nomiss.plsda_pcos[,-(2:3)]

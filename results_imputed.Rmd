@@ -22,7 +22,10 @@ kable(tab1)
 ```{r plotnumeric, echo=FALSE}
 #suppressPackageStartupMessages(library(metabolomics))
 for (i in 1:length(keep)) {print(
-  MetBoxPlots(nomissdf_nounk.log,metname = keep[i],main=keep[i]),
-  axis(1,labels=c("No diet","Diet"),at=c(1,2))
-  )}
+  boxplot(nomissdf_nounk.log[,paste0(keep[i]]~nomissdf_nounk.log$Group))}
+
+#for (i in 1:length(keep)) {print(
+#  MetBoxPlots(nomissdf_nounk.log,metname = keep[i],main=keep[i]),
+#  axis(1,labels=c("No diet","Diet"),at=c(1,2))
+#  )}
 ```

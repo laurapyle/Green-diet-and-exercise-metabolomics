@@ -191,15 +191,16 @@ demo$dummy <- rep(1,nrow(demo))
 demo$gender <- as.factor(demo$gender)
 demo$tanner <- as.factor(demo$tanner)
 demo$bmi_percentile <- as.numeric(as.character(demo$bmi_percentile))
+# recode double race person to 1
+demo$ethnicity[demo$ethnicity=="1,2"] <- 1
+demo$ethnicity <- droplevels(demo$ethnicity)
 label(demo$age)="Age"
 label(demo$gender)="Gender"
 label(demo$ethnicity)="Ethnicity"
 label(demo$tanner)="Tanner"
 label(demo$bmi_percentile)="BMI %ile"
 
-# recode double race person to 1
-demo$ethnicity[demo$ethnicity=="1,2"] <- 1
-demo$ethnicity <- droplevels(demo$ethnicity)
+
 
 # table 1
 tab1 <- final_table(data=demo,variables=c("age","gender","ethnicity","tanner","bmi_percentile"),

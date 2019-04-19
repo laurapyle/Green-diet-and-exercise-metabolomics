@@ -1,6 +1,8 @@
 setwd("H:\\Endocrinology\\Green\\Metabolomics papers\\Diet and exercise\\Data\\")
 
 library(readxl)
+# load NormalizeMets first, metabolomics second
+library(NormalizeMets)
 library(metabolomics)
 library(pca3d)
 library(pcaMethods)
@@ -145,7 +147,8 @@ write.csv(metscape,"H:\\Endocrinology\\Green\\Metabolomics papers\\Diet and exer
 
 # Volcano plot
 modfit_nona <- modFit[!is.na(modFit$p.value),]
-VolcanoPlot(folds=modfit_nona$coef, pvals=modfit_nona$p.value,plimit=0.05)
+metabolomics::VolcanoPlot(folds=modfit_nona$coef, pvals=modfit_nona$p.value,plimit=0.05)
+#NormalizeMets::VolcanoPlot(coef=as.vector(modFit$coefficients),pvals =as.vector(modFit$p.value))
 # VolcanoPlot doesn't like NA's for p-values
 
 # Dendrogram
@@ -156,7 +159,15 @@ Dendrogram(nomissdf_nounk.log)
 HeatMap(nomissdf_nounk.log,colramp=redgreen(75),margins = c(5,10),key=FALSE,dendrogram = "both")
 
 # PCA plot
-PcaPlots(nomissdf_nounk.log,scale=TRUE, center=TRUE)
+# first way is with metabolomics package
+#PcaPlots(nomissdf_nounk.log,scale=TRUE, center=TRUE)
+# second way is with NormalizeMets package
+pcaplots <- NormalizeMets::PcaPlots(nomissdf_nounk.log,
+                                    groupdata=nomissdf_nounk.log$Group,
+                                    scale=TRUE, center=TRUE,userinput = FALSE,saveplot = TRUE,savetype = "jpeg",
+                                    plotname="C:\\temp\\x",multiplot=TRUE,interactiveonly = FALSE,varplot = TRUE)
+dev.off()
+
 
 # RLA plot
 RlaPlots(nomissdf_nounk.log,type="ag")
@@ -301,6 +312,11 @@ fourgroup.log <- LogTransform(fourgroup)$output
 # HeatMap 
 HeatMap(fourgroup.log,colramp=redgreen(75),margins = c(5,10),key=FALSE,dendrogram = "both")
 # PCA plot
-PcaPlots(fourgroup.log,scale=TRUE, center=TRUE)
+#pcaplot4group <- PcaPlots(fourgroup.log,scale=TRUE, center=TRUE)
+pcaplot4group <- NormalizeMets::PcaPlots(fourgroup.log,
+                                    groupdata=fourgroup.log$Group,
+                                    scale=TRUE, center=TRUE,userinput = FALSE,saveplot = TRUE,savetype = "jpeg",
+                                    plotname="C:\\temp\\fourgroup",multiplot=TRUE,interactiveonly = FALSE,varplot = TRUE)
+dev.off()
 # this is really cool - the diet and nodiet cluster without respect to PCOS status
 

@@ -77,9 +77,8 @@ nomissdf <- as.data.frame(nomissdf)
 for (i in 1:nrow(nomissdf)) {
   row.names(nomissdf)[i] <- row.names(gooddata.format)[i] 
 }
-
-
 nomissdf_nounk <-  nomissdf[, -grep("UNK",colnames(nomissdf))]
+colnames(nomissdf_nounk) <- sub("\\(.*","",colnames(nomissdf_nounk))
 nomissdf_nounk.log <- LogTransform(nomissdf_nounk)$output
 
 #Separating by diet/no diet
@@ -103,7 +102,7 @@ TwoGroupPlots(nomissdf_nounk.log[,-1],
 # some compounds have NA's for p-values
 
 #Linear model fit with moderated statistics
-modFit<-LinearModelFit(datamat=data.matrix(dietmat_nounk-nodietmat_nounk),
+modFit<-metabolomics::LinearModelFit(datamat=data.matrix(dietmat_nounk-nodietmat_nounk),
                        ruv2=FALSE,
                        moderated=TRUE,
                        factormat=matrix(1,nrow=nrow(dietmat_nounk)),
@@ -148,8 +147,21 @@ write.csv(metscape,"H:\\Endocrinology\\Green\\Metabolomics papers\\Diet and exer
 # Volcano plot
 modfit_nona <- modFit[!is.na(modFit$p.value),]
 metabolomics::VolcanoPlot(folds=modfit_nona$coef, pvals=modfit_nona$p.value,plimit=0.05)
-#NormalizeMets::VolcanoPlot(coef=as.vector(modFit$coefficients),pvals =as.vector(modFit$p.value))
-# VolcanoPlot doesn't like NA's for p-values
+test <- NormalizeMets::LinearModelFit(featuredata = data.matrix(dietmat_nounk-nodietmat_nounk),
+                                      ruv2=FALSE,
+                                      factormat=matrix(1,nrow=nrow(dietmat_nounk)),
+                                      saveoutput = FALSE)
+coef_test <- test$coefficients
+coef_test <- as.vector(coef_test)
+temp_names <- row.names(test$coefficients)
+for (i in 1:length(temp_names)) {
+  temp_names[i] <- sub("\\(.*","",temp_names[i])
+}
+names(coef_test) <- temp_names
+NormalizeMets::VolcanoPlot(coef=coef_test,pvals =as.vector(test$p.value),labelsig = TRUE,cexlab=0.5,
+                           main="",interactiveplot = FALSE,xlim=c(-4,8))
+
+
 
 # Dendrogram
 Dendrogram(nomissdf_nounk.log)
@@ -231,7 +243,7 @@ diet.perf.splsda = perf(splsda.diet, validation = 'Mfold', folds = 5,
 diet.perf.splsda$error.rate
 plot(diet.perf.splsda)
 head(selectVar(splsda.diet, comp = 1)$value) 
-plot.new()
+dev.new()
 cim(splsda.diet, row.sideColors = color.mixo(as.factor(nomiss.plsda$Group)))
 diet.perf.splsda.loo = perf(splsda.diet, validation = 'loo', 
                         progressBar = FALSE, auc=TRUE)
@@ -245,59 +257,59 @@ var.coord = plotVar(splsda.diet20,var.names = FALSE)[,c("x","y")]
 biplot(ind.coord,var.coord,xlabs=as.factor(nomiss.plsda$Group))
 abline(h=0,v=0,lty=2)
 
+# PLSDA for PCOS vs no PCOS will not converge
 # now for pcos
 # need to do imputation by PCOS group
-gooddata.pcos <- gooddata.format
-for (i in 1:nrow(gooddata.pcos)) {
-  gooddata.pcos$PCOS[i] <- ifelse(substring(row.names(gooddata.pcos[i,]),1,1)=="P",1,0)
-}
-gooddata.pcos$Group <- gooddata.pcos$PCOS
-nomiss.pcos <- MissingValues(gooddata.pcos,column.cutoff = 0.95,group.cutoff = 0.7,saveoutput = TRUE,
-                        outputname = "C:\\Temp\\newoutput_pcos",complete.matrix = TRUE)
-nomissdf_pcos <- fread("C:\\Temp\\newoutput_pcos.csv",header=TRUE)
-nomissdf_pcos <- nomissdf_pcos[,-1]
-for (i in 1:nrow(nomissdf_pcos)) {
-  row.names(nomissdf_pcos)[i] <- row.names(gooddata.pcos)[i] 
-}
-nomissdf_pcos <- as.data.frame(nomissdf_pcos)
-nomissdf_nounk_pcos <-  nomissdf[, -grep("UNK",colnames(nomissdf_pcos))]
-for (i in 1:nrow(nomissdf_nounk_pcos)) {
-  nomissdf_nounk_pcos$PCOS[i] <- ifelse(substring(row.names(nomissdf_nounk_pcos[i,]),1,1)=="P",1,0)
-}
-nomissdf_nounk_pcos$Group <- nomissdf_nounk_pcos$PCOS
-nomissdf_nounk_pcos.log <- LogTransform(nomissdf_nounk_pcos)$output
-nomiss.plsda_pcos <- nomissdf_nounk_pcos
-nomiss.plsda_pcos$id <- row.names(nomiss.plsda_pcos)
-nomiss.plsda_pcos$id <- gsub("P", "", nomiss.plsda_pcos$id)
-nomiss.plsda_pcos$id <- gsub("C", "", nomiss.plsda_pcos$id)
-nomiss.plsda_pcos$id <- gsub("diet", "", nomiss.plsda_pcos$id)
-nomiss.plsda_pcos$id <- gsub("No-", "", nomiss.plsda_pcos$id)
-nomiss.plsda_pcos <- nomiss.plsda_pcos[,c(1,167,168,2:166)]
-splsda.pcos = splsda(X = nomiss.plsda_pcos[,c(4:168)], Y=as.factor(nomiss.plsda_pcos$PCOS), 
-                     ncomp = 2, multilevel = as.factor(nomiss.plsda_pcos$id),max.iter = 10000)
-plotIndiv(splsda.pcos, comp = c(1,2),
-          ind.names = FALSE, 
-          ellipse = TRUE, legend = TRUE)
-set.seed(34)  # for reproducible results for this code
-pcos.perf.splsda = perf(splsda.pcos, validation = 'Mfold', folds = 5, 
-                        progressBar = FALSE, nrepeat = 10, dist = 'max.dist',auc=TRUE)
-pcos.perf.splsda$error.rate
-plot(pcos.perf.splsda)
-head(selectVar(splsda.pcos, comp = 1)$value) 
-cim(splsda.pcos, row.sideColors = color.mixo(as.factor(nomiss.plsda$PCOS)))
-pcos.auroc <- auroc(splsda.pcos)
-
+# gooddata.pcos <- gooddata.format
+# for (i in 1:nrow(gooddata.pcos)) {
+#   gooddata.pcos$PCOS[i] <- ifelse(substring(row.names(gooddata.pcos[i,]),1,1)=="P",1,0)
+# }
+# gooddata.pcos$Group <- gooddata.pcos$PCOS
+# nomiss.pcos <- MissingValues(gooddata.pcos,column.cutoff = 0.95,group.cutoff = 0.7,saveoutput = TRUE,
+#                         outputname = "C:\\Temp\\newoutput_pcos",complete.matrix = TRUE)
+# nomissdf_pcos <- fread("C:\\Temp\\newoutput_pcos.csv",header=TRUE)
+# nomissdf_pcos <- nomissdf_pcos[,-1]
+# for (i in 1:nrow(nomissdf_pcos)) {
+#   row.names(nomissdf_pcos)[i] <- row.names(gooddata.pcos)[i] 
+# }
+# nomissdf_pcos <- as.data.frame(nomissdf_pcos)
+# nomissdf_nounk_pcos <-  nomissdf[, -grep("UNK",colnames(nomissdf_pcos))]
+# for (i in 1:nrow(nomissdf_nounk_pcos)) {
+#   nomissdf_nounk_pcos$PCOS[i] <- ifelse(substring(row.names(nomissdf_nounk_pcos[i,]),1,1)=="P",1,0)
+# }
+# nomissdf_nounk_pcos$Group <- nomissdf_nounk_pcos$PCOS
+# nomissdf_nounk_pcos.log <- LogTransform(nomissdf_nounk_pcos)$output
+# nomiss.plsda_pcos <- nomissdf_nounk_pcos
+# nomiss.plsda_pcos$id <- row.names(nomiss.plsda_pcos)
+# nomiss.plsda_pcos$id <- gsub("P", "", nomiss.plsda_pcos$id)
+# nomiss.plsda_pcos$id <- gsub("C", "", nomiss.plsda_pcos$id)
+# nomiss.plsda_pcos$id <- gsub("diet", "", nomiss.plsda_pcos$id)
+# nomiss.plsda_pcos$id <- gsub("No-", "", nomiss.plsda_pcos$id)
+# nomiss.plsda_pcos <- nomiss.plsda_pcos[,c(1,167,168,2:166)]
+# splsda.pcos = splsda(X = nomiss.plsda_pcos[,c(4:168)], Y=as.factor(nomiss.plsda_pcos$PCOS), 
+#                      ncomp = 2, multilevel = as.factor(nomiss.plsda_pcos$id),max.iter = 10000)
+# plotIndiv(splsda.pcos, comp = c(1,2),
+#           ind.names = FALSE, 
+#           ellipse = TRUE, legend = TRUE)
+# set.seed(34)  # for reproducible results for this code
+# pcos.perf.splsda = perf(splsda.pcos, validation = 'Mfold', folds = 5, 
+#                         progressBar = FALSE, nrepeat = 10, dist = 'max.dist',auc=TRUE)
+# pcos.perf.splsda$error.rate
+# plot(pcos.perf.splsda)
+# head(selectVar(splsda.pcos, comp = 1)$value) 
+# cim(splsda.pcos, row.sideColors = color.mixo(as.factor(nomiss.plsda$PCOS)))
+# pcos.auroc <- auroc(splsda.pcos)
 # ROC for splsda
 #auroc(splsda.srbct,newdata=splsda.srbct$input.X,outcome.test = as.factor(splsda.srbct$Y),plot=TRUE)
 #auroc(splsda.pcos,newdata=splsda.pcos$input.X,outcome.test = as.factor(splsda.pcos$Y),plot=TRUE)
 # why is this not converging?
 # probably because there are only a handful of controls
-nomiss.plsda_pcos.log <- nomiss.plsda_pcos[,-(2:3)]
-nomiss.plsda_pcos.log <- LogTransform(nomiss.plsda_pcos.log)$output
+#nomiss.plsda_pcos.log <- nomiss.plsda_pcos[,-(2:3)]
+#nomiss.plsda_pcos.log <- LogTransform(nomiss.plsda_pcos.log)$output
 # HeatMap 
-HeatMap(nomiss.plsda_pcos.log,colramp=redgreen(75),margins = c(5,10),key=FALSE,dendrogram = "both")
+#HeatMap(nomiss.plsda_pcos.log,colramp=redgreen(75),margins = c(5,10),key=FALSE,dendrogram = "both")
 # PCA plot
-PcaPlots(nomiss.plsda_pcos.log,scale=TRUE, center=TRUE)
+#PcaPlots(nomiss.plsda_pcos.log,scale=TRUE, center=TRUE)
 
 # can we do a PCA plot with 4 groups (i.e., cross-tab of PCO and diet)
 fourgroup <- nomiss.plsda

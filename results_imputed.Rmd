@@ -29,6 +29,19 @@ knitr::include_graphics("C:\\temp\\x_pca_score.jpeg")
 knitr::include_graphics("C:\\temp\\fourgroup_pca_score.jpeg")
 ```
 
+# Volcano plot
+```{r, echo=FALSE}
+suppressPackageStartupMessages(library(NormalizeMets))
+NormalizeMets::VolcanoPlot(coef=coef_test,pvals =as.vector(test$p.value),labelsig = TRUE,cexlab=0.5,
+                           main="",interactiveplot = FALSE,xlim=c(-4,8))
+```
+
+# Heat map
+```{r, echo=FALSE}
+suppressPackageStartupMessages(library(metabolomics))
+HeatMap(nomissdf_nounk.log,colramp=redgreen(75),margins = c(5,10),key=FALSE,dendrogram = "both")
+```
+
 # Boxplots for compounds that were significantly different by moderated t-test
 ```{r plotnumeric, echo=FALSE}
 #suppressPackageStartupMessages(library(metabolomics))

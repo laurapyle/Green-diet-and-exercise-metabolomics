@@ -42,6 +42,29 @@ suppressPackageStartupMessages(library(metabolomics))
 HeatMap(nomissdf_nounk.log,colramp=redgreen(75),margins = c(5,10),key=FALSE,dendrogram = "both")
 ```
 
+# Clustered image map
+
+This plot is similar to a heat map but based on sPLS analysis.
+
+```{r, echo=FALSE}
+knitr::include_graphics("C:\\temp\\cim.jpeg")
+```
+
+# Scatter plot representation of sPLS-DA
+```{r, echo=FALSE}
+suppressPackageStartupMessages(library(mixOmics))
+plotIndiv(splsda.diet, comp = c(1,2),
+          ind.names = FALSE, 
+          ellipse = TRUE, legend = FALSE, title="")
+```
+
+# Evaluation of sPLS-DA model
+
+Leave-one-out cross-validation was used to examine the performance of the sPLS-DA model based on diet vs. no-diet. 
+
+ Overall Error rate : `r diet.perf.splsda.loo$error.rate$overall[1,1]`
+ AUC: `r auc_save[1]`
+
 # Boxplots for compounds that were significantly different by moderated t-test
 ```{r plotnumeric, echo=FALSE}
 #suppressPackageStartupMessages(library(metabolomics))

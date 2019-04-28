@@ -244,9 +244,12 @@ diet.perf.splsda$error.rate
 plot(diet.perf.splsda)
 head(selectVar(splsda.diet, comp = 1)$value) 
 dev.new()
-cim(splsda.diet, row.sideColors = color.mixo(as.factor(nomiss.plsda$Group)))
+cim(splsda.diet, row.sideColors = color.mixo(as.factor(nomiss.plsda$Group)),save="jpeg",
+    name.save = "C:\\temp\\cim")
+dev.off()
 diet.perf.splsda.loo = perf(splsda.diet, validation = 'loo', 
                         progressBar = FALSE, auc=TRUE)
+auc_save <- diet.perf.splsda.loo$auc$`comp 1`
 diet.auroc <- auroc(splsda.diet)
 
 # biplot with top 20 compounds

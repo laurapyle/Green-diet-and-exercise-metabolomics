@@ -13,6 +13,8 @@ library(data.table)
 library(dplyr)
 library(mixOmics)
 library(Hmisc)
+library("FactoMineR")
+library("factoextra")
 
 # read and transpose data
 #mydata <- read_excel(path="H:\\Endocrinology\\Green\\Metabolomics papers\\Diet and exercise\\Data\\raw data for metaboanalyst no null.xlsx",sheet=1 )
@@ -180,6 +182,23 @@ pcaplots <- NormalizeMets::PcaPlots(nomissdf_nounk.log,
                                     plotname="C:\\temp\\x",multiplot=TRUE,interactiveonly = FALSE,varplot = TRUE)
 dev.off()
 
+# trying PCA plot with confidence ellipses
+res.pca <- PCA(nomissdf_nounk.log[,-1], graph = FALSE)
+png("C:\\temp\\indplot_diet1.png")
+plot1 <- fviz_pca_ind(res.pca,
+             geom.ind = "point", # show points only (nbut not "text")
+             col.ind = as.factor(nomissdf_nounk.log$Group), # color by groups
+             palette = c("#00AFBB", "#E7B800"),
+             addEllipses = TRUE # Concentration ellipses
+             )
+ggpubr::ggpar(plot1,
+              title = "Principal Component Analysis",
+              subtitle = "",
+              caption = "",
+              xlab = "PC1", ylab = "PC2",
+              legend.position = "right",legend.title="Group",
+              ggtheme = theme_gray(), palette = "jco")
+dev.off()
 
 # RLA plot
 RlaPlots(nomissdf_nounk.log,type="ag")
@@ -335,3 +354,58 @@ pcaplot4group <- NormalizeMets::PcaPlots(fourgroup.log,
 dev.off()
 # this is really cool - the diet and nodiet cluster without respect to PCOS status
 
+# trying PCA plot with confidence ellipses
+res4group.pca <- PCA(fourgroup.log[,-1], graph = FALSE)
+png("C:\\temp\\indplot_4group.png")
+plot4group <- fviz_pca_ind(res4group.pca,
+                      geom.ind = "point", # show points only (nbut not "text")
+                      col.ind = as.factor(fourgroup.log$Group), # color by groups
+                      palette = c("#00AFBB", "#E7B800"),
+                      addEllipses = TRUE # Concentration ellipses
+)
+ggpubr::ggpar(plot4group,
+              title = "Principal Component Analysis",
+              subtitle = "",
+              caption = "",
+              xlab = "PC1", ylab = "PC2",
+              legend.position = "right",legend.title="Group",
+              ggtheme = theme_gray(), palette = "jco")
+dev.off()
+
+# try separate PCAs of OGTT PCO vs not, can we tell PCO vs. not?
+OGTT_PCA.log <- fourgroup.log[fourgroup.log$Group==1 | fourgroup.log$Group==3,]
+ogtt.pca <- PCA(OGTT_PCA.log[,-1], graph = FALSE)
+png("C:\\temp\\indplot_ogttpca.png")
+plotogtt <- fviz_pca_ind(ogtt.pca,
+                           geom.ind = "point", # show points only (nbut not "text")
+                           col.ind = as.factor(OGTT_PCA.log$Group), # color by groups
+                           palette = c("#00AFBB", "#E7B800"),
+                           addEllipses = TRUE # Concentration ellipses
+)
+ggpubr::ggpar(plotogtt,
+              title = "Principal Component Analysis",
+              subtitle = "",
+              caption = "",
+              xlab = "PC1", ylab = "PC2",
+              legend.position = "right",legend.title="Group",
+              ggtheme = theme_gray(), palette = "jco")
+dev.off()
+
+# try separate PCAs of clamp PCO vs not, can we tell PCO vs. not?
+clamp_PCA.log <- fourgroup.log[fourgroup.log$Group==2 | fourgroup.log$Group==4,]
+clamp.pca <- PCA(clamp_PCA.log[,-1], graph = FALSE)
+png("C:\\temp\\indplot_clamppca.png")
+plotclamp <- fviz_pca_ind(clamp.pca,
+                         geom.ind = "point", # show points only (nbut not "text")
+                         col.ind = as.factor(clamp_PCA.log$Group), # color by groups
+                         palette = c("#00AFBB", "#E7B800"),
+                         addEllipses = TRUE # Concentration ellipses
+)
+ggpubr::ggpar(plotclamp,
+              title = "Principal Component Analysis",
+              subtitle = "",
+              caption = "",
+              xlab = "PC1", ylab = "PC2",
+              legend.position = "right",legend.title="Group",
+              ggtheme = theme_gray(), palette = "jco")
+dev.off()

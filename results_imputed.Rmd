@@ -22,11 +22,13 @@ kable(tab1)
 # PCA plot by diet/no diet
 ```{r, echo=FALSE}
 knitr::include_graphics("C:\\temp\\x_pca_score.jpeg")
+knitr::include_graphics("C:\\temp\\indplot_diet1.png")
 ```
 
 # PCA plot of dietxPCOS
 ```{r, echo=FALSE}
 knitr::include_graphics("C:\\temp\\fourgroup_pca_score.jpeg")
+knitr::include_graphics("C:\\temp\\indplot_4group.png")
 ```
 
 # Volcano plot

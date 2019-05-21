@@ -409,3 +409,35 @@ ggpubr::ggpar(plotclamp,
               legend.position = "right",legend.title="Group",
               ggtheme = theme_gray(), palette = "jco")
 dev.off()
+
+# try PLS-DA of clamp, PCO vs not
+fourgroup_plsda <- nomiss.plsda
+fourgroup_plsda$temp[fourgroup_plsda$PCOS==0 & fourgroup_plsda$Group==0] <- 1
+fourgroup_plsda$temp[fourgroup_plsda$PCOS==0 & fourgroup_plsda$Group==1] <- 2
+fourgroup_plsda$temp[fourgroup_plsda$PCOS==1 & fourgroup_plsda$Group==0] <- 3
+fourgroup_plsda$temp[fourgroup_plsda$PCOS==1 & fourgroup_plsda$Group==1] <- 4
+fourgroup_plsda <- fourgroup_plsda[,c(1:3,169,4:168)]
+fourgroup_plsda$Group <- fourgroup_plsda$temp
+fourgroup_plsda <- fourgroup_plsda[,-4]
+clamp_plsda <- fourgroup_plsda[fourgroup_plsda$Group==2 | fourgroup_plsda$Group==4,]
+ogtt_plsda <- fourgroup_plsda[fourgroup_plsda$Group==1 | fourgroup_plsda$Group==3,]
+
+splsda.clamp = splsda(X = clamp_plsda[,c(4:168)], Y=as.factor(clamp_plsda$Group), ncomp = 2)
+plotIndiv(splsda.clamp, comp = c(1,2),
+          ind.names = FALSE, 
+          ellipse = TRUE, legend = FALSE, title="")
+clamp.perf.splsda = perf(splsda.clamp, validation = 'Mfold', folds = 5, 
+                        progressBar = FALSE, nrepeat = 10, dist = 'max.dist',auc=TRUE)
+clamp.perf.splsda$error.rate
+plot(clamp.perf.splsda)
+# in clamp dataset, overall error rate is 0.16 and 0.13
+
+splsda.ogtt = splsda(X = ogtt_plsda[,c(4:168)], Y=as.factor(ogtt_plsda$Group), ncomp = 2)
+plotIndiv(splsda.ogtt, comp = c(1,2),
+          ind.names = FALSE, 
+          ellipse = TRUE, legend = FALSE, title="")
+ogtt.perf.splsda = perf(splsda.ogtt, validation = 'Mfold', folds = 5, 
+                         progressBar = FALSE, nrepeat = 10, dist = 'max.dist',auc=TRUE)
+ogtt.perf.splsda$error.rate
+plot(ogtt.perf.splsda)
+# in OGTT dataset, overall error rate is 0.3 and 0.29

@@ -246,7 +246,7 @@ label(demo$bmi_percentile)="BMI %ile"
 
 # table 1
 tab1 <- final_table(data=demo,variables=c("age","gender","ethnicity","tanner","bmi_percentile"),
-                    ron=2,group=as.factor(demo$dummy),margin=2)
+                    ron=2,group=as.factor(demo$PCOS),margin=2)
 
 # http://mixomics.org/mixmc/case-study-hmp-bodysites-repeated-measures/
 splsda.diet = splsda(X = nomiss.plsda[,c(4:168)], Y=as.factor(nomiss.plsda$Group), 

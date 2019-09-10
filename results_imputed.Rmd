@@ -29,6 +29,7 @@ library(mixOmics)
 library(Hmisc)
 library("FactoMineR")
 library("factoextra")
+library(tableone)
 
 # read and transpose data
 #mydata <- read_excel(path="H:\\Endocrinology\\Green\\Metabolomics papers\\Diet and exercise\\Data\\raw data for metaboanalyst no null.xlsx",sheet=1 )
@@ -255,17 +256,21 @@ demo$bmi_percentile <- as.numeric(as.character(demo$bmi_percentile))
 # recode double race person to 1
 demo$ethnicity[demo$ethnicity=="1,2"] <- 1
 demo$ethnicity <- droplevels(demo$ethnicity)
-label(demo$age)="Age"
-label(demo$gender)="Gender"
-label(demo$ethnicity)="Ethnicity"
-label(demo$tanner)="Tanner"
-label(demo$bmi_percentile)="BMI %ile"
+#label(demo$age)="Age"
+#label(demo$gender)="Gender"
+#label(demo$ethnicity)="Ethnicity"
+#label(demo$tanner)="Tanner"
+#label(demo$bmi_percentile)="BMI %ile"
 
 
 
 # table 1
-tab1 <- final_table(data=demo,variables=c("age","gender","ethnicity","tanner","bmi_percentile"),
-                    ron=2,group=as.factor(demo$dummy),margin=2)
+#tab1 <- final_table(data=demo,variables=c("age","gender","ethnicity","tanner","bmi_percentile"),
+#                    ron=2,group=as.factor(demo$PCOS),margin=2)
+
+myvars <- c("age","gender","ethnicity","tanner","bmi_percentile")
+tab1 <- CreateTableOne(vars=myvars, strata="PCOS",data=demo, test=TRUE)
+tab1 <- print(tab1,varLabels=TRUE)
 
 # http://mixomics.org/mixmc/case-study-hmp-bodysites-repeated-measures/
 splsda.diet = splsda(X = nomiss.plsda[,c(4:168)], Y=as.factor(nomiss.plsda$Group), 

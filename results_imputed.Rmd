@@ -17,7 +17,7 @@ setwd("H:\\Endocrinology\\Green\\Metabolomics papers\\Diet and exercise\\Data\\"
 library(readxl)
 # load NormalizeMets first, metabolomics second
 library(NormalizeMets)
-library(metabolomics)
+#library(metabolomics)
 library(pca3d)
 library(pcaMethods)
 library(ggplot2)
@@ -34,7 +34,7 @@ library(tableone)
 # read and transpose data
 #mydata <- read_excel(path="H:\\Endocrinology\\Green\\Metabolomics papers\\Diet and exercise\\Data\\raw data for metaboanalyst no null.xlsx",sheet=1 )
 # read in new dataset from Haseeb with identified unknowns
-mydata <- read_excel(path="H:\\Endocrinology\\Green\\Metabolomics papers\\Diet and exercise\\Data\\raw data for metaboanalyst no null.xlsx",sheet=1 )
+mydata <- read_excel(path="H:\\Endocrinology\\Green\\Metabolomics papers\\Diet and exercise\\Data\\updated data with identified unknowns 1.2.19 no null.xlsx",sheet=1 )
 
 mydata <- as.data.frame(mydata)
 mydata <- mydata[!is.na(mydata$Name),]
@@ -86,8 +86,8 @@ cn <- ncol(temp)
 gooddata.format <- temp[,c(cn,1:(cn-1))]
 
 # impute missing data
-nomiss <- MissingValues(gooddata.format,column.cutoff = 0.95,group.cutoff = 0.7,saveoutput = TRUE,
-                        outputname = "C:\\Temp\\newoutput",complete.matrix = TRUE)
+nomiss <- MissingValues(gooddata.format,feature.cutoff = 0.95,sample.cutoff = 0.8,saveoutput = TRUE,
+                        outputname = "C:\\Temp\\newoutput")
 nomissdf <- fread("C:\\Temp\\newoutput.csv",header=TRUE)
 nomissdf <- nomissdf[,-1]
 nomissdf <- as.data.frame(nomissdf)
@@ -96,50 +96,51 @@ for (i in 1:nrow(nomissdf)) {
 }
 nomissdf_nounk <-  nomissdf[, -grep("UNK",colnames(nomissdf))]
 colnames(nomissdf_nounk) <- sub("\\(.*","",colnames(nomissdf_nounk))
-nomissdf_nounk.log <- LogTransform(nomissdf_nounk)$output
+nomissdf_nounk.log <- LogTransform(nomissdf_nounk)
+nomissdf_nounk.log$featuredata[,1] <-  nomissdf_nounk[,1]
 
 #Separating by diet/no diet
-nomissdf_nounk.group<-factor(nomissdf_nounk.log[,1],levels=unique(nomissdf_nounk.log[,1]))
-dietmat_nounk<-nomissdf_nounk.log[which(nomissdf_nounk.log[,1]==1),-1]
-nodietmat_nounk<-nomissdf_nounk.log[which(nomissdf_nounk.log[,1]==0),-1]
+nomissdf_nounk.group<-factor(nomissdf_nounk.log$featuredata[,1],levels=unique(nomissdf_nounk.log$featuredata[,1]))
+dietmat_nounk<-nomissdf_nounk.log$featuredata[which(nomissdf_nounk.log$featuredata[,1]==1),-1]
+nodietmat_nounk<-nomissdf_nounk.log$featuredata[which(nomissdf_nounk.log$featuredata[,1]==0),-1]
 
 #Linear model fit with ordinary statistics
-ordFit<-LinearModelFit(datamat=data.matrix(dietmat_nounk-nodietmat_nounk),
+ordFit<-LinearModelFit(featuredata=data.matrix(dietmat_nounk-nodietmat_nounk),
                        ruv2=FALSE,
                        factormat=matrix(1,nrow=nrow(dietmat_nounk)),
                        outputname = "H:\\Endocrinology\\Green\\Metabolomics papers\\Diet and exercise\\Data\\ordFit",
                        saveoutput = TRUE)
-TwoGroupPlots(nomissdf_nounk.log[,-1],
-              tstats = ordFit$t[,1],
-              foldchanges = ordFit$coef[,1],
-              pvalues = ordFit$p.val[,1],
-              padjmethod = "BH",
-              fcutoff = log(2),
-              pcutoff = 0.05)
+# TwoGroupPlots(nomissdf_nounk.log$featuredata[,-1],
+#               tstats = ordFit$t[,1],
+#               foldchanges = ordFit$coef[,1],
+#               pvalues = ordFit$p.val[,1],
+#               padjmethod = "BH",
+#               fcutoff = log(2),
+#               pcutoff = 0.05)
 # some compounds have NA's for p-values
 
 #Linear model fit with moderated statistics
-modFit<-metabolomics::LinearModelFit(datamat=data.matrix(dietmat_nounk-nodietmat_nounk),
+modFit<-LinearModelFit(featuredata=data.matrix(dietmat_nounk-nodietmat_nounk),
                        ruv2=FALSE,
                        moderated=TRUE,
                        factormat=matrix(1,nrow=nrow(dietmat_nounk)),
                        outputname = "H:\\Endocrinology\\Green\\Metabolomics papers\\Diet and exercise\\Data\\modFit",
                        saveoutput = TRUE)
-TwoGroupPlots(nomissdf_nounk.log[,-1],
-              tstats = modFit$t[,1],
-              foldchanges = modFit$coef[,1],
-              pvalues = modFit$p.val[,1],
-              padjmethod = "BH",
-              fcutoff = log(2),
-              pcutoff = 0.05)
+# TwoGroupPlots(nomissdf_nounk.log[,-1],
+#               tstats = modFit$t[,1],
+#               foldchanges = modFit$coef[,1],
+#               pvalues = modFit$p.val[,1],
+#               padjmethod = "BH",
+#               fcutoff = log(2),
+#               pcutoff = 0.05)
 # trying TwoGroupPlot with anything significantly different, regardless of fold change
-TwoGroupPlots(nomissdf_nounk.log[,-1],
-              tstats = modFit$t[,1],
-              foldchanges = modFit$coef[,1],
-              pvalues = modFit$p.val[,1],
-              padjmethod = "BH",
-              fcutoff = log(1),
-              pcutoff = 0.05)
+# TwoGroupPlots(nomissdf_nounk.log[,-1],
+#               tstats = modFit$t[,1],
+#               foldchanges = modFit$coef[,1],
+#               pvalues = modFit$p.val[,1],
+#               padjmethod = "BH",
+#               fcutoff = log(1),
+#               pcutoff = 0.05)
 
 # BoxPlots for significant compounds
 sig <- read.csv(file="H:\\Endocrinology\\Green\\Metabolomics papers\\Diet and exercise\\Data\\modFit.csv")
@@ -148,7 +149,7 @@ keep <- as.matrix(sig$X)
 
 
 # get fold change for knowns
-fc_nounk <- as.data.frame(FoldChange(nomissdf_nounk.log,paired=TRUE))
+fc_nounk <- as.data.frame(FoldChange(nomissdf_nounk.log$featuredata,paired=TRUE))
 fc_nounk$Compound <- rownames(fc_nounk)
 fc_nounk <- as.data.frame(fc_nounk[,-1])
 colnames(fc_nounk) <- c("FC","X")
@@ -163,7 +164,9 @@ write.csv(metscape,"H:\\Endocrinology\\Green\\Metabolomics papers\\Diet and exer
 
 # Volcano plot
 modfit_nona <- modFit[!is.na(modFit$p.value),]
-metabolomics::VolcanoPlot(folds=modfit_nona$coef, pvals=modfit_nona$p.value,plimit=0.05)
+VolcanoPlot(coef=modfit_nona$coefficients[,1], pvals=modfit_nona$p.value[,1],plimit=0.05,
+            interactiveonly = FALSE)
+
 test <- NormalizeMets::LinearModelFit(featuredata = data.matrix(dietmat_nounk-nodietmat_nounk),
                                       ruv2=FALSE,
                                       factormat=matrix(1,nrow=nrow(dietmat_nounk)),

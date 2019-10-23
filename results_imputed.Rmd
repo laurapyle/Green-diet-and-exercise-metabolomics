@@ -95,19 +95,21 @@ for (i in 1:nrow(nomissdf)) {
   row.names(nomissdf)[i] <- row.names(gooddata.format)[i] 
 }
 nomissdf_nounk <-  nomissdf[, -grep("UNK",colnames(nomissdf))]
-colnames(nomissdf_nounk) <- sub("\\(.*","",colnames(nomissdf_nounk))
+#colnames(nomissdf_nounk) <- sub("\\(.*","",colnames(nomissdf_nounk))
 nomissdf_nounk.log <- LogTransform(nomissdf_nounk)
 nomissdf_nounk.log$featuredata[,1] <-  nomissdf_nounk[,1]
 
 #Separating by diet/no diet
 nomissdf_nounk.group<-factor(nomissdf_nounk.log$featuredata[,1],levels=unique(nomissdf_nounk.log$featuredata[,1]))
-dietmat_nounk<-nomissdf_nounk.log$featuredata[which(nomissdf_nounk.log$featuredata[,1]==1),-1]
-nodietmat_nounk<-nomissdf_nounk.log$featuredata[which(nomissdf_nounk.log$featuredata[,1]==0),-1]
+dietmat_nounk <- NULL
+nodietmat_nounk <- NULL
+dietmat_nounk$featuredata<-nomissdf_nounk.log$featuredata[which(nomissdf_nounk.log$featuredata[,1]==1),-1]
+nodietmat_nounk$featuredata<-nomissdf_nounk.log$featuredata[which(nomissdf_nounk.log$featuredata[,1]==0),-1]
 
 #Linear model fit with ordinary statistics
-ordFit<-LinearModelFit(featuredata=data.matrix(dietmat_nounk-nodietmat_nounk),
+ordFit<-LinearModelFit(featuredata=data.matrix(dietmat_nounk$featuredata-nodietmat_nounk$featuredata),
                        ruv2=FALSE,
-                       factormat=matrix(1,nrow=nrow(dietmat_nounk)),
+                       factormat=matrix(1,nrow=nrow(dietmat_nounk$featuredata)),
                        outputname = "H:\\Endocrinology\\Green\\Metabolomics papers\\Diet and exercise\\Data\\ordFit",
                        saveoutput = TRUE)
 # TwoGroupPlots(nomissdf_nounk.log$featuredata[,-1],
@@ -120,10 +122,10 @@ ordFit<-LinearModelFit(featuredata=data.matrix(dietmat_nounk-nodietmat_nounk),
 # some compounds have NA's for p-values
 
 #Linear model fit with moderated statistics
-modFit<-LinearModelFit(featuredata=data.matrix(dietmat_nounk-nodietmat_nounk),
+modFit<-LinearModelFit(featuredata=data.matrix(dietmat_nounk$featuredata-nodietmat_nounk$featuredata),
                        ruv2=FALSE,
                        moderated=TRUE,
-                       factormat=matrix(1,nrow=nrow(dietmat_nounk)),
+                       factormat=matrix(1,nrow=nrow(dietmat_nounk$featuredata)),
                        outputname = "H:\\Endocrinology\\Green\\Metabolomics papers\\Diet and exercise\\Data\\modFit",
                        saveoutput = TRUE)
 # TwoGroupPlots(nomissdf_nounk.log[,-1],
@@ -167,9 +169,9 @@ modfit_nona <- modFit[!is.na(modFit$p.value),]
 VolcanoPlot(coef=modfit_nona$coefficients[,1], pvals=modfit_nona$p.value[,1],plimit=0.05,
             interactiveonly = FALSE)
 
-test <- NormalizeMets::LinearModelFit(featuredata = data.matrix(dietmat_nounk-nodietmat_nounk),
+test <- NormalizeMets::LinearModelFit(featuredata = data.matrix(dietmat_nounk$featuredata-nodietmat_nounk$featuredata),
                                       ruv2=FALSE,
-                                      factormat=matrix(1,nrow=nrow(dietmat_nounk)),
+                                      factormat=matrix(1,nrow=nrow(dietmat_nounk$featuredata)),
                                       saveoutput = FALSE)
 coef_test <- test$coefficients
 coef_test <- as.vector(coef_test)
@@ -179,33 +181,42 @@ for (i in 1:length(temp_names)) {
 }
 names(coef_test) <- temp_names
 NormalizeMets::VolcanoPlot(coef=coef_test,pvals =as.vector(test$p.value),labelsig = TRUE,cexlab=0.5,
-                           main="",interactiveplot = FALSE,xlim=c(-4,8))
+                           main="",interactiveplot = TRUE,xlim=c(-4,8))
 
-
+# for some of the analyses in NormalizeMets, need separate dfs with feature data and group data
+nomissdf_nounk.log.nm <- NULL
+nomissdf_nounk.log.nm$featuredata <- nomissdf_nounk.log$featuredata[,-c(1)]
+#nomissdf_nounk.log.nm$featuredata$Group <- NULL
+nomissdf_nounk.log.nm$groupdata <- as.data.frame(nomissdf_nounk.log$featuredata[,1])
+colnames(nomissdf_nounk.log.nm$groupdata)="Group"
+nomissdf_nounk.log.nm$metdata <- as.data.frame(colnames(nomissdf_nounk.log.nm$featuredata))
+colnames(nomissdf_nounk.log.nm$metdata)="Metabolite"
+rownames(nomissdf_nounk.log.nm$metdata)=colnames(nomissdf_nounk.log.nm$featuredata)
 
 # Dendrogram
-Dendrogram(nomissdf_nounk.log)
+den <- Dendrogram(featuredata=nomissdf_nounk.log.nm$featuredata,groupdata = nomissdf_nounk.log.nm$groupdata$Group, clust = TRUE,nclust=2)
 # is there an interaction between diet and PCOS?  PCO group seem like they are more similar regardless of diet
 
 # HeatMap 
-HeatMap(nomissdf_nounk.log,colramp=redgreen(75),margins = c(5,10),key=FALSE,dendrogram = "both")
+HeatMap(featuredata = nomissdf_nounk.log.nm$featuredata,groupdata = nomissdf_nounk.log.nm$groupdata$Group,interactiveplot = FALSE,
+        colramp=c(75,"magenta","green"),key=FALSE,dendrogram = "both",saveplot = TRUE,margins = c(10,22),cexRow = 0.2)
 
 # PCA plot
 # first way is with metabolomics package
 #PcaPlots(nomissdf_nounk.log,scale=TRUE, center=TRUE)
 # second way is with NormalizeMets package
-pcaplots <- NormalizeMets::PcaPlots(nomissdf_nounk.log,
-                                    groupdata=nomissdf_nounk.log$Group,
+pcaplots <- NormalizeMets::PcaPlots(featuredata=nomissdf_nounk.log.nm$featuredata,
+                                    groupdata=nomissdf_nounk.log.nm$groupdata$Group,
                                     scale=TRUE, center=TRUE,userinput = FALSE,saveplot = TRUE,savetype = "jpeg",
                                     plotname="C:\\temp\\x",multiplot=TRUE,interactiveonly = FALSE,varplot = TRUE)
 dev.off()
 
 # trying PCA plot with confidence ellipses
-res.pca <- PCA(nomissdf_nounk.log[,-1], graph = FALSE)
+res.pca <- PCA(nomissdf_nounk.log.nm$featuredata[,-1], graph = FALSE)
 png("C:\\temp\\indplot_diet1.png")
 plot1 <- fviz_pca_ind(res.pca,
              geom.ind = "point", # show points only (nbut not "text")
-             col.ind = as.factor(nomissdf_nounk.log$Group), # color by groups
+             col.ind = as.factor(nomissdf_nounk.log.nm$groupdata$Group), # color by groups
              palette = c("#00AFBB", "#E7B800"),
              addEllipses = TRUE, # Concentration ellipse
              title=""
@@ -224,8 +235,8 @@ dev.off()
 
 
 # RLA plot
-RlaPlots(nomissdf_nounk.log,type="ag")
-RlaPlots(nomissdf_nounk.log,type="wg")
+RlaPlots(featuredata=nomissdf_nounk.log.nm$featuredata,groupdata=nomissdf_nounk.log.nm$groupdata, type="ag")
+RlaPlots(featuredata=nomissdf_nounk.log.nm$featuredata,groupdata=nomissdf_nounk.log.nm$groupdata, type="wg")
 
 # create dataset for PLS-DA
 # create variable for PCO status
@@ -363,6 +374,7 @@ abline(h=0,v=0,lty=2)
 #PcaPlots(nomiss.plsda_pcos.log,scale=TRUE, center=TRUE)
 
 # can we do a PCA plot with 4 groups (i.e., cross-tab of PCO and diet)
+# THIS IS WHERE I STOPPED - NEED TO CONVERT TO PROPER DATA FORMAT FOR NORMALIZEMETS
 fourgroup <- nomiss.plsda
 fourgroup$temp[fourgroup$PCOS==0 & fourgroup$Group==0] <- 1
 fourgroup$temp[fourgroup$PCOS==0 & fourgroup$Group==1] <- 2

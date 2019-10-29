@@ -199,12 +199,9 @@ den <- Dendrogram(featuredata=nomissdf_nounk.log.nm$featuredata,groupdata = nomi
 
 # HeatMap 
 HeatMap(featuredata = nomissdf_nounk.log.nm$featuredata,groupdata = nomissdf_nounk.log.nm$groupdata$Group,interactiveplot = FALSE,
-        colramp=c(75,"magenta","green"),key=FALSE,dendrogram = "both",saveplot = TRUE,margins = c(10,22),cexRow = 0.2)
+        colramp=c(75,"magenta","green"),key=FALSE,dendrogram = "both",saveplot = TRUE,margins = c(10,22),cexRow = 0.2,plotname="Two group heatmap")
 
 # PCA plot
-# first way is with metabolomics package
-#PcaPlots(nomissdf_nounk.log,scale=TRUE, center=TRUE)
-# second way is with NormalizeMets package
 pcaplots <- NormalizeMets::PcaPlots(featuredata=nomissdf_nounk.log.nm$featuredata,
                                     groupdata=nomissdf_nounk.log.nm$groupdata$Group,
                                     scale=TRUE, center=TRUE,userinput = FALSE,saveplot = TRUE,savetype = "jpeg",
@@ -374,82 +371,96 @@ abline(h=0,v=0,lty=2)
 #PcaPlots(nomiss.plsda_pcos.log,scale=TRUE, center=TRUE)
 
 # can we do a PCA plot with 4 groups (i.e., cross-tab of PCO and diet)
-# THIS IS WHERE I STOPPED - NEED TO CONVERT TO PROPER DATA FORMAT FOR NORMALIZEMETS
-fourgroup <- nomiss.plsda
-fourgroup$temp[fourgroup$PCOS==0 & fourgroup$Group==0] <- 1
-fourgroup$temp[fourgroup$PCOS==0 & fourgroup$Group==1] <- 2
-fourgroup$temp[fourgroup$PCOS==1 & fourgroup$Group==0] <- 3
-fourgroup$temp[fourgroup$PCOS==1 & fourgroup$Group==1] <- 4
-fourgroup <- fourgroup[,c(1:3,169,4:168)]
-fourgroup$Group <- fourgroup$temp
-fourgroup <- fourgroup[,-(2:4)]
-fourgroup.log <- LogTransform(fourgroup)$output
+fourgroup.nm <- nomissdf_nounk.log.nm
+pcos <- grep("P",rownames(fourgroup.nm$groupdata))
+for (i in 1:nrow(fourgroup.nm$groupdata)) {
+   fourgroup.nm$groupdata$PCOS[i] <- ifelse(row.names(fourgroup.nm$groupdata)[i] %in% pcos,1,0)
+}
+fourgroup.nm$groupdata$fourgroup[fourgroup.nm$groupdata$PCOS==0 & fourgroup.nm$groupdata$Group==0] <- 1
+fourgroup.nm$groupdata$fourgroup[fourgroup.nm$groupdata$PCOS==0 & fourgroup.nm$groupdata$Group==1] <- 2
+fourgroup.nm$groupdata$fourgroup[fourgroup.nm$groupdata$PCOS==1 & fourgroup.nm$groupdata$Group==0] <- 3
+fourgroup.nm$groupdata$fourgroup[fourgroup.nm$groupdata$PCOS==1 & fourgroup.nm$groupdata$Group==1] <- 4
+#fourgroup <- fourgroup[,c(1:3,169,4:168)]
+#fourgroup$Group <- fourgroup$temp
+#fourgroup <- fourgroup[,-(2:4)]
+#fourgroup.log <- LogTransform(fourgroup)$output
 # HeatMap 
-HeatMap(fourgroup.log,colramp=redgreen(75),margins = c(5,10),key=FALSE,dendrogram = "both")
+HeatMap(featuredata = fourgroup.nm$featuredata,groupdata = fourgroup.nm$groupdata$fourgroup,interactiveplot = FALSE,
+        colramp=c(75,"magenta","green"),key=FALSE,dendrogram = "both",saveplot = TRUE,margins = c(10,22),cexRow = 0.2,plotname = "Four group heat map")
+
 # PCA plot
 #pcaplot4group <- PcaPlots(fourgroup.log,scale=TRUE, center=TRUE)
-pcaplot4group <- NormalizeMets::PcaPlots(fourgroup.log,
-                                    groupdata=fourgroup.log$Group,
+pcaplots <- NormalizeMets::PcaPlots(featuredata=fourgroup.nm$featuredata,
+                                    groupdata=fourgroup.nm$groupdata$fourgroup,
                                     scale=TRUE, center=TRUE,userinput = FALSE,saveplot = TRUE,savetype = "jpeg",
                                     plotname="C:\\temp\\fourgroup",multiplot=TRUE,interactiveonly = FALSE,varplot = TRUE)
 dev.off()
 # this is really cool - the diet and nodiet cluster without respect to PCOS status
 
 # trying PCA plot with confidence ellipses
-res4group.pca <- PCA(fourgroup.log[,-1], graph = FALSE)
+res4group.pca <- PCA(fourgroup.nm$featuredata[,-1], graph = FALSE)
 png("C:\\temp\\indplot_4group.png")
 plot4group <- fviz_pca_ind(res4group.pca,
-                      geom.ind = "point", # show points only (nbut not "text")
-                      col.ind = as.factor(fourgroup.log$Group), # color by groups
-                      palette = c("#00AFBB", "#E7B800"),
-                      addEllipses = TRUE # Concentration ellipses
-)
+             geom.ind = "point", # show points only (nbut not "text")
+             col.ind = as.factor(fourgroup.nm$groupdata$four), # color by groups
+             palette = c("#00AFBB", "#E7B800"),
+             addEllipses = TRUE, # Concentration ellipse
+             title=""
+             )
 ggpubr::ggpar(plot4group,
-              title = "Principal Component Analysis",
+              title = "",
               subtitle = "",
               caption = "",
               xlab = "PC1", ylab = "PC2",
-              legend.position = "right",legend.title="Group",
               ggtheme = theme_gray(), palette = "jco")
+plot4group + scale_color_manual(labels=c("Control, no diet","Control, diet","PCOS, no diet","PCOS, diet"),
+                                values= c("#00AFBB", "#E7B800","#eb94e0","#8fa832"),"Group") +
+        scale_fill_manual(guide = 'none', values=c("#00AFBB", "#E7B800","#eb94e0","#8fa832")) +
+        scale_shape_manual(guide = 'none', values=c(1,2,3,4))  +
+        labs(x="PC1",y="PC2")
 dev.off()
+
 
 # try separate PCAs of OGTT PCO vs not, can we tell PCO vs. not?
-OGTT_PCA.log <- fourgroup.log[fourgroup.log$Group==1 | fourgroup.log$Group==3,]
-ogtt.pca <- PCA(OGTT_PCA.log[,-1], graph = FALSE)
-png("C:\\temp\\indplot_ogttpca.png")
-plotogtt <- fviz_pca_ind(ogtt.pca,
-                           geom.ind = "point", # show points only (nbut not "text")
-                           col.ind = as.factor(OGTT_PCA.log$Group), # color by groups
-                           palette = c("#00AFBB", "#E7B800"),
-                           addEllipses = TRUE # Concentration ellipses
-)
-ggpubr::ggpar(plotogtt,
-              title = "Principal Component Analysis",
-              subtitle = "",
-              caption = "",
-              xlab = "PC1", ylab = "PC2",
-              legend.position = "right",legend.title="Group",
-              ggtheme = theme_gray(), palette = "jco")
-dev.off()
+# OGTT_PCA.log <- fourgroup.log[fourgroup.log$Group==1 | fourgroup.log$Group==3,]
+# ogtt.pca <- PCA(OGTT_PCA.log[,-1], graph = FALSE)
+# png("C:\\temp\\indplot_ogttpca.png")
+# plotogtt <- fviz_pca_ind(ogtt.pca,
+#                            geom.ind = "point", # show points only (nbut not "text")
+#                            col.ind = as.factor(OGTT_PCA.log$Group), # color by groups
+#                            palette = c("#00AFBB", "#E7B800"),
+#                            addEllipses = TRUE # Concentration ellipses
+# )
+# ggpubr::ggpar(plotogtt,
+#               title = "Principal Component Analysis",
+#               subtitle = "",
+#               caption = "",
+#               xlab = "PC1", ylab = "PC2",
+#               legend.position = "right",legend.title="Group",
+#               ggtheme = theme_gray(), palette = "jco")
+# dev.off()
 
 # try separate PCAs of clamp PCO vs not, can we tell PCO vs. not?
-clamp_PCA.log <- fourgroup.log[fourgroup.log$Group==2 | fourgroup.log$Group==4,]
-clamp.pca <- PCA(clamp_PCA.log[,-1], graph = FALSE)
-png("C:\\temp\\indplot_clamppca.png")
-plotclamp <- fviz_pca_ind(clamp.pca,
-                         geom.ind = "point", # show points only (nbut not "text")
-                         col.ind = as.factor(clamp_PCA.log$Group), # color by groups
-                         palette = c("#00AFBB", "#E7B800"),
-                         addEllipses = TRUE # Concentration ellipses
-)
-ggpubr::ggpar(plotclamp,
-              title = "Principal Component Analysis",
-              subtitle = "",
-              caption = "",
-              xlab = "PC1", ylab = "PC2",
-              legend.position = "right",legend.title="Group",
-              ggtheme = theme_gray(), palette = "jco")
-dev.off()
+# clamp_PCA.log <- fourgroup.log[fourgroup.log$Group==2 | fourgroup.log$Group==4,]
+# clamp.pca <- PCA(clamp_PCA.log[,-1], graph = FALSE)
+# png("C:\\temp\\indplot_clamppca.png")
+# plotclamp <- fviz_pca_ind(clamp.pca,
+#                          geom.ind = "point", # show points only (nbut not "text")
+#                          col.ind = as.factor(clamp_PCA.log$Group), # color by groups
+#                          palette = c("#00AFBB", "#E7B800"),
+#                          addEllipses = TRUE # Concentration ellipses
+# )
+# ggpubr::ggpar(plotclamp,
+#               title = "Principal Component Analysis",
+#               subtitle = "",
+#               caption = "",
+#               xlab = "PC1", ylab = "PC2",
+#               legend.position = "right",legend.title="Group",
+#               ggtheme = theme_gray(), palette = "jco")
+# dev.off()
+
+
+# STOPPED HERE - NEED TO MAKE SURE CODE BELOW IS CALLING CORRECT OBJECTS AND CUT AND PASTE NORMALIZE METS CODE
 
 ```
 

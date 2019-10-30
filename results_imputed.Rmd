@@ -164,12 +164,13 @@ annotated <- annotated[,c(1:2)]
 metscape <- merge(metscape,annotated,by="X")
 write.csv(metscape,"H:\\Endocrinology\\Green\\Metabolomics papers\\Diet and exercise\\Data\\formetscape_imputed.csv")
 
-# Volcano plot
+# Volcano plot using moderated t-test
 modfit_nona <- modFit[!is.na(modFit$p.value),]
 VolcanoPlot(coef=modfit_nona$coefficients[,1], pvals=modfit_nona$p.value[,1],plimit=0.05,
             interactiveonly = FALSE)
 
-test <- NormalizeMets::LinearModelFit(featuredata = data.matrix(dietmat_nounk$featuredata-nodietmat_nounk$featuredata),
+# Volcano plot using ordinary t-test
+test <- LinearModelFit(featuredata = data.matrix(dietmat_nounk$featuredata-nodietmat_nounk$featuredata),
                                       ruv2=FALSE,
                                       factormat=matrix(1,nrow=nrow(dietmat_nounk$featuredata)),
                                       saveoutput = FALSE)
@@ -305,7 +306,7 @@ cim(splsda.diet, row.sideColors = color.mixo(as.factor(nomiss.plsda$Group)), row
 dev.off()
 diet.perf.splsda.loo = perf(splsda.diet, validation = 'loo', 
                         progressBar = FALSE, auc=TRUE)
-auc_save <- diet.perf.splsda.loo$auc$`comp 1`
+auc_save <- diet.perf.splsda.loo$auc$comp1[1]
 diet.auroc <- auroc(splsda.diet)
 
 # biplot with top 20 compounds
@@ -373,9 +374,12 @@ abline(h=0,v=0,lty=2)
 # can we do a PCA plot with 4 groups (i.e., cross-tab of PCO and diet)
 fourgroup.nm <- nomissdf_nounk.log.nm
 pcos <- grep("P",rownames(fourgroup.nm$groupdata))
-for (i in 1:nrow(fourgroup.nm$groupdata)) {
-   fourgroup.nm$groupdata$PCOS[i] <- ifelse(row.names(fourgroup.nm$groupdata)[i] %in% pcos,1,0)
+for (i in 1:nrow(fourgroup.nm$featuredata)){
+  fourgroup.nm$groupdata$PCOS <- ifelse(i %in% pcos,1,0)
 }
+
+fourgroup.nm$groupdata$PCOS[pcos] <- 1
+fourgroup.nm$groupdata$PCOS[fourgroup.nm$groupdata$PCOS != 1] <- 0
 fourgroup.nm$groupdata$fourgroup[fourgroup.nm$groupdata$PCOS==0 & fourgroup.nm$groupdata$Group==0] <- 1
 fourgroup.nm$groupdata$fourgroup[fourgroup.nm$groupdata$PCOS==0 & fourgroup.nm$groupdata$Group==1] <- 2
 fourgroup.nm$groupdata$fourgroup[fourgroup.nm$groupdata$PCOS==1 & fourgroup.nm$groupdata$Group==0] <- 3
@@ -402,8 +406,8 @@ res4group.pca <- PCA(fourgroup.nm$featuredata[,-1], graph = FALSE)
 png("C:\\temp\\indplot_4group.png")
 plot4group <- fviz_pca_ind(res4group.pca,
              geom.ind = "point", # show points only (nbut not "text")
-             col.ind = as.factor(fourgroup.nm$groupdata$four), # color by groups
-             palette = c("#00AFBB", "#E7B800"),
+             col.ind = as.factor(fourgroup.nm$groupdata$fourgroup), # color by groups
+             palette = c("#00AFBB", "#E7B800","#eb94e0","#8fa832"),
              addEllipses = TRUE, # Concentration ellipse
              title=""
              )
@@ -483,14 +487,15 @@ knitr::include_graphics("C:\\temp\\indplot_4group.png")
 # Volcano plot
 ```{r, echo=FALSE}
 suppressPackageStartupMessages(library(NormalizeMets))
-NormalizeMets::VolcanoPlot(coef=coef_test,pvals =as.vector(test$p.value),labelsig = TRUE,cexlab=0.5,
-                           main="",interactiveplot = FALSE,xlim=c(-4,8))
+NormalizeMets::VolcanoPlot(coef=modfit_nona$coefficients[,1], pvals=modfit_nona$p.value[,1],plimit=0.05,
+            interactiveonly = FALSE)
 ```
 
 # Heat map
 ```{r, echo=FALSE}
-suppressPackageStartupMessages(library(metabolomics))
-HeatMap(nomissdf_nounk.log,colramp=redgreen(75),margins = c(5,10),key=FALSE,dendrogram = "both")
+suppressPackageStartupMessages(library(NormalizeMets))
+HeatMap(featuredata = nomissdf_nounk.log.nm$featuredata,groupdata = nomissdf_nounk.log.nm$groupdata$Group,interactiveplot = FALSE,
+        colramp=c(75,"magenta","green"),key=FALSE,dendrogram = "both",saveplot = TRUE,margins = c(10,22),cexRow = 0.2,plotname="Two group heatmap")
 ```
 
 # Clustered image map
@@ -520,7 +525,7 @@ Leave-one-out cross-validation was used to examine the performance of the sPLS-D
 ```{r plotnumeric, echo=FALSE}
 #suppressPackageStartupMessages(library(metabolomics))
 for (i in 1:length(keep)) {
-  boxplot(nomissdf_nounk.log[,paste0(keep[i])]~nomissdf_nounk.log$Group,names=c('No Diet','Diet'),main=paste0(keep[i]))
+  boxplot(nomissdf_nounk.log$featuredata[,paste0(keep[i])]~nomissdf_nounk.log$featuredata[,1],names=c('No Diet','Diet'),main=paste0(keep[i]),ylab="",xlab="")
 }
 
 

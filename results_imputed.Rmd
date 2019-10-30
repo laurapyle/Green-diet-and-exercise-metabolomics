@@ -58,6 +58,9 @@ alldata$id <- gsub("Control6164-", "", alldata$id)
 alldata$uniqueid <- paste(substr(alldata$longid,1,1),alldata$Batch,alldata$id,sep="")
 row.names(alldata) <- alldata$uniqueid
 
+# check how  many compounds are known
+check_knowns <- alldata[, -grep("UNK",colnames(alldata))]
+
 # convert to numeric
 num <- alldata[ ,!(colnames(alldata) %in% c("Batch","id","longid","uniqueid"))]
 fwrite(num,"C:\\Temp\\temp.csv")

@@ -149,7 +149,7 @@ modFit<-LinearModelFit(featuredata=data.matrix(dietmat_nounk$featuredata-nodietm
 
 # BoxPlots for significant compounds
 sig <- read.csv(file="H:\\Endocrinology\\Green\\Metabolomics papers\\Diet and exercise\\Data\\modFit.csv")
-sig <- sig[sig$t.p.value.x1<0.05,]
+sig <- sig[sig$Adjusted.t.p.value.x1<0.05,]
 keep <- as.matrix(sig$X)
 
 

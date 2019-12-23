@@ -30,16 +30,30 @@ library(Hmisc)
 library("FactoMineR")
 library("factoextra")
 library(tableone)
+library(gdata)
+library(forcats)
 
 # read and transpose data
 #mydata <- read_excel(path="H:\\Endocrinology\\Green\\Metabolomics papers\\Diet and exercise\\Data\\raw data for metaboanalyst no null.xlsx",sheet=1 )
 # read in new dataset from Haseeb with identified unknowns
 mydata <- read_excel(path="H:\\Endocrinology\\Green\\Metabolomics papers\\Diet and exercise\\Data\\updated data with identified unknowns 1.2.19 no null.xlsx",sheet=1 )
-
 mydata <- as.data.frame(mydata)
 mydata <- mydata[!is.na(mydata$Name),]
 alldata <- as.data.frame(t(mydata[,-1]))
 colnames(alldata) <- mydata$Name
+colnames(alldata) <- str_remove_all(colnames(alldata),fixed(" (M-H)-"))
+colnames(alldata) <- str_remove(colnames(alldata),fixed(" (M+Cl)-"))
+colnames(alldata) <- str_remove(colnames(alldata),fixed(" (M-H)-[-H2O]"))
+colnames(alldata) <- str_remove(colnames(alldata),fixed(" (M-H)+[-H2O]"))
+colnames(alldata) <- str_remove(colnames(alldata),fixed(" (M+Cl)+[-H2O]"))
+colnames(alldata) <- str_remove(colnames(alldata),fixed(" (M+Cl)-"))
+colnames(alldata) <- str_remove(colnames(alldata),fixed(" (M+H)-"))
+colnames(alldata) <- str_remove(colnames(alldata),fixed(" [-H2O]"))
+colnames(alldata) <- str_remove(colnames(alldata),fixed("[-H2O]"))
+colnames(alldata) <- str_remove(colnames(alldata),fixed(" (2M-H)+"))
+colnames(alldata) <- str_remove(colnames(alldata),fixed(" (M+H)+"))
+colnames(alldata) <- str_remove(colnames(alldata),fixed(" (M+K)+"))
+colnames(alldata) <- str_remove(colnames(alldata),fixed(" (M+Na)+"))
 
 source("C:\\Users\\pylell\\Documents\\GitHub\\General-code\\temp_table1.r")
 source("C:\\Users\\pylell\\Documents\\GitHub\\General-code\\foldchange.r")
@@ -91,13 +105,17 @@ gooddata.format <- temp[,c(cn,1:(cn-1))]
 # impute missing data
 nomiss <- MissingValues(gooddata.format,feature.cutoff = 0.95,sample.cutoff = 0.8,saveoutput = TRUE,
                         outputname = "C:\\Temp\\newoutput")
-nomissdf <- fread("C:\\Temp\\newoutput.csv",header=TRUE)
+nomissdf <- fread("C:\\Temp\\newoutput_featuredata.csv",header=TRUE)
 nomissdf <- nomissdf[,-1]
 nomissdf <- as.data.frame(nomissdf)
 for (i in 1:nrow(nomissdf)) {
   row.names(nomissdf)[i] <- row.names(gooddata.format)[i] 
 }
 nomissdf_nounk <-  nomissdf[, -grep("UNK",colnames(nomissdf))]
+nomiss_nounk <- NULL
+nomiss_nounk$featuredata <- nomiss$featuredata[, -grep("UNK",colnames(nomiss$featuredata))]
+nomiss_nounk$sampledata <- nomiss$sampledata
+nomiss_nounk$metabolitedata <- nomiss$metabolitedata[-grep("UNK",nomiss$metabolitedata)]
 #colnames(nomissdf_nounk) <- sub("\\(.*","",colnames(nomissdf_nounk))
 nomissdf_nounk.log <- LogTransform(nomissdf_nounk)
 nomissdf_nounk.log$featuredata[,1] <-  nomissdf_nounk[,1]
@@ -152,6 +170,14 @@ sig <- read.csv(file="H:\\Endocrinology\\Green\\Metabolomics papers\\Diet and ex
 sig <- sig[sig$Adjusted.t.p.value.x1<0.05,]
 keep <- as.matrix(sig$X)
 
+# can we create a relative log abundance plot for top 20 compounds by moderated t-test
+sig_ord  <- sig
+sig_ord <- sig_ord %>% arrange(coeff.x1)
+sig_ord$X <- with(sig_ord, reorder(X,coeff.x1))
+p <- ggplot(data=sig_ord, aes(x=X, y=coeff.x1,ymin=Lower.CI.x1,ymax=Upper.CI.x1)) + 
+  geom_pointrange() + geom_hline(yintercept=0, lty=2) +
+  coord_flip() + xlab("") + ylab("Relative Log Difference (Diet-No Diet) and 95% CI") +
+  theme(axis.text.x = element_text(size=8), text=element_text(size=8))
 
 # get fold change for knowns
 fc_nounk <- as.data.frame(FoldChange(nomissdf_nounk.log$featuredata,paired=TRUE))
@@ -236,8 +262,14 @@ dev.off()
 
 
 # RLA plot
-RlaPlots(featuredata=nomissdf_nounk.log.nm$featuredata,groupdata=nomissdf_nounk.log.nm$groupdata, type="ag")
-RlaPlots(featuredata=nomissdf_nounk.log.nm$featuredata,groupdata=nomissdf_nounk.log.nm$groupdata, type="wg")
+RlaPlots(featuredata=nomissdf_nounk.log.nm$featuredata,groupdata=nomissdf_nounk.log.nm$groupdata, type="ag",
+         saveinteractiveplot = T,interactiveonly = T)
+RlaPlots(featuredata=nomissdf_nounk.log.nm$featuredata,groupdata=nomissdf_nounk.log.nm$groupdata, type="ag",
+         saveplot = TRUE,plotname = "rla1",savetype = "jpeg")
+RlaPlots(featuredata=nomissdf_nounk.log.nm$featuredata,groupdata=nomissdf_nounk.log.nm$groupdata, type="wg",
+         saveplot = TRUE,plotname = "C:\\Temp\\rla2",savetype = "jpeg")
+RlaPlots(featuredata=nomissdf_nounk.log.nm$featuredata,groupdata=nomissdf_nounk.log.nm$groupdata, type="wg",
+         saveinteractiveplot = T,saveplot = TRUE,plotname = "C:\\Temp\\rla2",savetype = "jpeg")
 
 # create dataset for PLS-DA
 # create variable for PCO status
@@ -250,15 +282,17 @@ nomiss.plsda$id <- gsub("P", "", nomiss.plsda$id)
 nomiss.plsda$id <- gsub("C", "", nomiss.plsda$id)
 nomiss.plsda$id <- gsub("diet", "", nomiss.plsda$id)
 nomiss.plsda$id <- gsub("No-", "", nomiss.plsda$id)
-nomiss.plsda <- nomiss.plsda[,c(1,167,168,2:166)]
+nomiss.plsda <- nomiss.plsda[,c(1,174,175,2:173)]
 
 # create dataset of demographics
-demo <- nomiss.plsda[c("PCOS")]
-demo$id <- row.names(nomiss.plsda)
-demo$id <- gsub("P", "", nomiss.plsda$id)
-demo$id <- gsub("C", "", nomiss.plsda$id)
-demo$id <- gsub("diet", "", nomiss.plsda$id)
-demo$id <- gsub("No-", "", nomiss.plsda$id)
+demo <- nomiss.plsda$PCOS
+temp <- as.data.frame(row.names(nomiss.plsda))
+demo <- cbind(demo,temp)
+colnames(demo) <- c("PCOS","id")
+demo$id <- gsub("P", "", demo$id)
+demo$id <- gsub("C", "", demo$id)
+demo$id <- gsub("diet", "", demo$id)
+demo$id <- gsub("No-", "", demo$id)
 temp <- read.csv("H:\\Endocrinology\\Green\\Metabolomics papers\\Diet and exercise\\Data\\demographics.csv")
 temp <- temp[c("subject_id","age","gender","ethnicity","tanner","bmi_percentile")]
 temp$id <- gsub("6164-", "", temp$subject_id) 
@@ -289,10 +323,10 @@ tab1 <- print(tab1,varLabels=TRUE)
 
 # http://mixomics.org/mixmc/case-study-hmp-bodysites-repeated-measures/
 splsda.diet = splsda(X = nomiss.plsda[,c(4:168)], Y=as.factor(nomiss.plsda$Group), 
-                   ncomp = 2, multilevel = as.factor(nomiss.plsda$id))
-plotIndiv(splsda.diet, comp = c(1,2),
+                   ncomp = 3, multilevel = as.factor(nomiss.plsda$id))
+plotIndiv(splsda.diet, comp = c(1,2,3),
           ind.names = FALSE, 
-          ellipse = TRUE, legend = TRUE, title="")
+          ellipse = TRUE, legend = TRUE, title="",style="3d")
 listvar <- selectVar(splsda.diet)
 listvar <- listvar$name[-grep("UNK",listvar$name)]
 set.seed(34)  # for reproducible results for this code
@@ -300,12 +334,15 @@ diet.perf.splsda = perf(splsda.diet, validation = 'Mfold', folds = 5,
                            progressBar = FALSE, nrepeat = 10, dist = 'max.dist',auc=TRUE)
 diet.perf.splsda$error.rate
 plot(diet.perf.splsda)
-head(selectVar(splsda.diet, comp = 1)$value) 
+head(selectVar(splsda.diet, comp = 1)$value)
+# splsda but keep only top 30 compounds
+splsda.diet30 = splsda(X = nomiss.plsda[,c(4:168)], Y=as.factor(nomiss.plsda$Group), 
+                   ncomp = 3, multilevel = as.factor(nomiss.plsda$id),keepX = 30)
 dev.new()
-cim(splsda.diet, row.sideColors = color.mixo(as.factor(nomiss.plsda$Group)), row.names = FALSE, col.names=FALSE,
+cim(splsda.diet30, row.sideColors = color.mixo(as.factor(nomiss.plsda$Group)), row.names = FALSE, col.names=TRUE,
     legend=list(legend=c("No Diet","Diet")),
     save="jpeg",
-    name.save = "C:\\temp\\cim")
+    name.save = "C:\\temp\\cim",margins =c(20,20) )
 dev.off()
 diet.perf.splsda.loo = perf(splsda.diet, validation = 'loo', 
                         progressBar = FALSE, auc=TRUE)
@@ -514,7 +551,7 @@ knitr::include_graphics("C:\\temp\\cim.jpeg")
 suppressPackageStartupMessages(library(mixOmics))
 plotIndiv(splsda.diet, comp = c(1,2),
           ind.names = FALSE, 
-          ellipse = TRUE, legend=TRUE, title="")
+          ellipse = TRUE, legend = TRUE, title="")
 ```
 
 # Evaluation of sPLS-DA model
@@ -523,6 +560,11 @@ Leave-one-out cross-validation was used to examine the performance of the sPLS-D
 
  Overall Error rate : `r diet.perf.splsda.loo$error.rate$overall[1,1]`
  AUC: `r auc_save[1]`
+
+# Relative log difference for compounds that were significantly different by moderated t-test
+```{r, echo=F}
+p
+```
 
 # Boxplots for compounds that were significantly different by moderated t-test
 ```{r plotnumeric, echo=FALSE}

@@ -197,8 +197,7 @@ write.csv(metscape,"H:\\Endocrinology\\Green\\Metabolomics papers\\Diet and exer
 
 # Volcano plot using moderated t-test
 modfit_nona <- modFit[!is.na(modFit$p.value),]
-VolcanoPlot(coef=modfit_nona$coefficients[,1], pvals=modfit_nona$p.value[,1],plimit=0.05,
-            interactiveonly = FALSE)
+VolcanoPlot(coef=modfit_nona$coefficients[,1], pvals=modfit_nona$adj.p.value[,1],plimit=0.05,interactiveonly = FALSE,ylab="-log(q-value)",labelsig = FALSE, fclabel = "q<0.05")
 
 # Volcano plot using ordinary t-test
 test <- LinearModelFit(featuredata = data.matrix(dietmat_nounk$featuredata-nodietmat_nounk$featuredata),
@@ -530,8 +529,7 @@ knitr::include_graphics("C:\\temp\\indplot_4group.png")
 # Volcano plot
 ```{r, echo=FALSE}
 suppressPackageStartupMessages(library(NormalizeMets))
-NormalizeMets::VolcanoPlot(coef=modfit_nona$coefficients[,1], pvals=modfit_nona$p.value[,1],plimit=0.05,
-            interactiveonly = FALSE)
+VolcanoPlot(coef=modfit_nona$coefficients[,1], pvals=modfit_nona$adj.p.value[,1],plimit=0.05,interactiveonly = FALSE,ylab="-log(q-value)",labelsig = FALSE)
 ```
 
 # Heat map

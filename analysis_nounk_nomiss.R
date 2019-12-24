@@ -108,7 +108,7 @@ modFit<-metabolomics::LinearModelFit(datamat=data.matrix(dietmat_nounk-nodietmat
                        ruv2=FALSE,
                        moderated=TRUE,
                        factormat=matrix(1,nrow=nrow(dietmat_nounk)),
-                       outputname = "H:\\Endocrinology\\Green\\Metabolomics papers\\Diet and exercise\\Data\\modFit",
+                       outputname = "H:\\Endocrinology\\Green\\Metabolomics papers\\Diet and exercise\\Data\\checking_old_modFit",
                        saveoutput = TRUE)
 TwoGroupPlots(nomissdf_nounk.log[,-1],
               tstats = modFit$t[,1],

@@ -321,7 +321,7 @@ demo$ethnicity <- droplevels(demo$ethnicity)
 
 myvars <- c("age","gender","ethnicity","tanner","bmi_percentile")
 tab1 <- CreateTableOne(vars=myvars, strata="PCOS",data=demo, test=TRUE)
-tab1 <- print(tab1,varLabels=TRUE)
+tab1 <- print(tab1,varLabels=TRUE,exact="ethnicity")
 
 # http://mixomics.org/mixmc/case-study-hmp-bodysites-repeated-measures/
 nomiss.plsda$Group_char[nomiss.plsda$Group==0] <- "No Diet"

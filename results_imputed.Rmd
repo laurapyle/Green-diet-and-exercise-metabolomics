@@ -34,6 +34,7 @@ library("factoextra")
 library(tableone)
 library(gdata)
 library(forcats)
+library(limma)
 
 # read and transpose data
 #mydata <- read_excel(path="H:\\Endocrinology\\Green\\Metabolomics papers\\Diet and exercise\\Data\\raw data for metaboanalyst no null.xlsx",sheet=1 )
@@ -143,6 +144,10 @@ ordFit<-LinearModelFit(featuredata=data.matrix(dietmat_nounk$featuredata-nodietm
 #               fcutoff = log(2),
 #               pcutoff = 0.05)
 # some compounds have NA's for p-values
+
+# testing limma
+limtest <- lmFit(data.matrix(t(dietmat_nounk$featuredata)-t(nodietmat_nounk$featuredata)),
+                 factormat=matrix(1,nrow=nrow(t(dietmat_nounk$featuredata))))
 
 #Linear model fit with moderated statistics
 modFit<-LinearModelFit(featuredata=data.matrix(dietmat_nounk$featuredata-nodietmat_nounk$featuredata),

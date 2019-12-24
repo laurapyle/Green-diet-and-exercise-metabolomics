@@ -3,6 +3,8 @@ title: "Diet and activity metabolomics"
 author: "Laura Pyle"
 date: "`r format(Sys.time(), '%d %B %Y')`"
 output: word_document
+editor_options: 
+  chunk_output_type: console
 ---
 
 ```{r setup, include=FALSE}
@@ -176,7 +178,7 @@ sig_ord <- sig_ord %>% arrange(coeff.x1)
 sig_ord$X <- with(sig_ord, reorder(X,coeff.x1))
 p <- ggplot(data=sig_ord, aes(x=X, y=coeff.x1,ymin=Lower.CI.x1,ymax=Upper.CI.x1)) + 
   geom_pointrange() + geom_hline(yintercept=0, lty=2) +
-  coord_flip() + xlab("") + ylab("Relative Log Difference (Diet-No Diet) and 95% CI") +
+  coord_flip() + xlab("") + ylab("Mean Log Difference (Diet-No Diet)") +
   theme(axis.text.x = element_text(size=8), text=element_text(size=8))
 
 # get fold change for knowns
@@ -322,13 +324,16 @@ tab1 <- CreateTableOne(vars=myvars, strata="PCOS",data=demo, test=TRUE)
 tab1 <- print(tab1,varLabels=TRUE)
 
 # http://mixomics.org/mixmc/case-study-hmp-bodysites-repeated-measures/
-splsda.diet = splsda(X = nomiss.plsda[,c(4:168)], Y=as.factor(nomiss.plsda$Group), 
-                   ncomp = 3, multilevel = as.factor(nomiss.plsda$id))
-plotIndiv(splsda.diet, comp = c(1,2,3),
+nomiss.plsda$Group_char[nomiss.plsda$Group==0] <- "No Diet"
+nomiss.plsda$Group_char[nomiss.plsda$Group==1] <- "Diet"
+splsda.diet = splsda(X = nomiss.plsda[,c(4:168)], Y=as.factor(nomiss.plsda$Group_char), 
+                   ncomp = 2, multilevel = as.factor(nomiss.plsda$id))
+plotIndiv(splsda.diet, comp = c(1,2),
           ind.names = FALSE, 
-          ellipse = TRUE, legend = TRUE, title="",style="3d")
+          ellipse = TRUE, legend = TRUE, title="")
 listvar <- selectVar(splsda.diet)
-listvar <- listvar$name[-grep("UNK",listvar$name)]
+listvar <- listvar$name[-grep("UNK
+                              ",listvar$name)]
 set.seed(34)  # for reproducible results for this code
 diet.perf.splsda = perf(splsda.diet, validation = 'Mfold', folds = 5, 
                            progressBar = FALSE, nrepeat = 10, dist = 'max.dist',auc=TRUE)
@@ -503,8 +508,6 @@ dev.off()
 #               ggtheme = theme_gray(), palette = "jco")
 # dev.off()
 
-
-# STOPPED HERE - NEED TO MAKE SURE CODE BELOW IS CALLING CORRECT OBJECTS AND CUT AND PASTE NORMALIZE METS CODE
 
 ```
 

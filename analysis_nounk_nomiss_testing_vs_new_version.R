@@ -19,8 +19,8 @@ library("factoextra")
 # read and transpose data
 #mydata <- read_excel(path="H:\\Endocrinology\\Green\\Metabolomics papers\\Diet and exercise\\Data\\raw data for metaboanalyst no null.xlsx",sheet=1 )
 # read in new dataset from Haseeb with identified unknowns
-mydata <- read_excel(path="H:\\Endocrinology\\Green\\Metabolomics papers\\Diet and exercise\\Data\\raw data for metaboanalyst no null.xlsx",sheet=1 )
-
+#mydata <- read_excel(path="H:\\Endocrinology\\Green\\Metabolomics papers\\Diet and exercise\\Data\\raw data for metaboanalyst no null.xlsx",sheet=1 )
+mydata <- read_excel(path="H:\\Endocrinology\\Green\\Metabolomics papers\\Diet and exercise\\Data\\updated data with identified unknowns 1.2.19 no null.xlsx",sheet=1 )
 mydata <- as.data.frame(mydata)
 mydata <- mydata[!is.na(mydata$Name),]
 alldata <- as.data.frame(t(mydata[,-1]))
@@ -71,8 +71,10 @@ cn <- ncol(temp)
 gooddata.format <- temp[,c(cn,1:(cn-1))]
 
 # impute missing data
+#nomiss <- MissingValues(gooddata.format,column.cutoff = 0.95,group.cutoff = 0.7,saveoutput = TRUE,
+#                        outputname = "C:\\Temp\\newoutput",complete.matrix = TRUE)
 nomiss <- MissingValues(gooddata.format,column.cutoff = 0.95,group.cutoff = 0.7,saveoutput = TRUE,
-                        outputname = "C:\\Temp\\newoutput",complete.matrix = TRUE)
+                        outputname = "C:\\Temp\\newoutput")
 nomissdf <- fread("C:\\Temp\\newoutput.csv",header=TRUE)
 nomissdf <- nomissdf[,-1]
 nomissdf <- as.data.frame(nomissdf)
@@ -104,12 +106,12 @@ TwoGroupPlots(nomissdf_nounk.log[,-1],
 # some compounds have NA's for p-values
 
 # testing moderated stats using data from newer version of program
-test <- read.csv("H:\\Endocrinology\\Green\\Metabolomics papers\\Diet and exercise\\Data\\diet minus nodiet.csv")
-test <- test[,-1]
-modFit<-metabolomics::LinearModelFit(datamat=data.matrix(test),
+#test <- read.csv("H:\\Endocrinology\\Green\\Metabolomics papers\\Diet and exercise\\Data\\diet minus nodiet.csv")
+#test <- test[,-1]
+modFit<-metabolomics::LinearModelFit(datamat=data.matrix(dietmat_nounk-nodietmat_nounk),
                                      ruv2=FALSE,
                                      moderated=FALSE,
-                                     factormat=matrix(1,nrow=nrow(test)),
+                                     factormat=matrix(1,nrow=nrow(dietmat_nounk)),
                                      outputname = "H:\\Endocrinology\\Green\\Metabolomics papers\\Diet and exercise\\Data\\test old modfit new data",
                                      saveoutput = TRUE)
 

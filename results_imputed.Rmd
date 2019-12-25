@@ -149,6 +149,9 @@ ordFit<-LinearModelFit(featuredata=data.matrix(dietmat_nounk$featuredata-nodietm
 limtest <- lmFit(data.matrix(t(dietmat_nounk$featuredata)-t(nodietmat_nounk$featuredata)),
                  factormat=matrix(1,nrow=nrow(t(dietmat_nounk$featuredata))))
 
+# write dataframe to file so I can compare to metabolomics
+write.csv(dietmat_nounk$featuredata-nodietmat_nounk$featuredata,"H:\\Endocrinology\\Green\\Metabolomics papers\\Diet and exercise\\Data\\diet minus nodiet.csv")
+
 #Linear model fit with moderated statistics
 modFit<-LinearModelFit(featuredata=data.matrix(dietmat_nounk$featuredata-nodietmat_nounk$featuredata),
                        ruv2=FALSE,
@@ -343,7 +346,7 @@ diet.perf.splsda = perf(splsda.diet, validation = 'Mfold', folds = 5,
                            progressBar = FALSE, nrepeat = 10, dist = 'max.dist',auc=TRUE)
 diet.perf.splsda$error.rate
 plot(diet.perf.splsda)
-head(selectVar(splsda.diet, comp = 1)$value)
+list1 <- selectVar(splsda.diet, comp = 1)$value
 # splsda but keep only top 30 compounds
 splsda.diet30 = splsda(X = nomiss.plsda[,c(4:168)], Y=as.factor(nomiss.plsda$Group), 
                    ncomp = 3, multilevel = as.factor(nomiss.plsda$id),keepX = 30)

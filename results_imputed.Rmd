@@ -293,6 +293,18 @@ nomiss.plsda$id <- gsub("diet", "", nomiss.plsda$id)
 nomiss.plsda$id <- gsub("No-", "", nomiss.plsda$id)
 nomiss.plsda <- nomiss.plsda[,c(1,174,175,2:173)]
 
+# dataset for PLS-DA using unknowns
+nomissunk.plsda <- nomissdf
+for (i in 1:nrow(nomissdf)) {
+  nomissunk.plsda$PCOS[i] <- ifelse(substring(row.names(nomissdf[i,]),1,1)=="P",1,0)
+}
+nomissunk.plsda$id <- row.names(nomissunk.plsda)
+nomissunk.plsda$id <- gsub("P", "", nomissunk.plsda$id)
+nomissunk.plsda$id <- gsub("C", "", nomissunk.plsda$id)
+nomissunk.plsda$id <- gsub("diet", "", nomissunk.plsda$id)
+nomissunk.plsda$id <- gsub("No-", "", nomissunk.plsda$id)
+nomissunk.plsda <- nomissunk.plsda[,c(1,6695,6696,2:6694)]
+
 # create dataset of demographics
 demo <- nomiss.plsda$PCOS
 temp <- as.data.frame(row.names(nomiss.plsda))
@@ -423,6 +435,25 @@ abline(h=0,v=0,lty=2)
 # PCA plot
 #PcaPlots(nomiss.plsda_pcos.log,scale=TRUE, center=TRUE)
 
+# PLS-DA including unknowns
+nomissunk.plsda$Group_char[nomissunk.plsda$Group==0] <- "No Diet"
+nomissunk.plsda$Group_char[nomissunk.plsda$Group==1] <- "Diet"
+splsda.diet.unk = splsda(X = nomissunk.plsda[,c(4:6696)], Y=as.factor(nomissunk.plsda$Group_char), 
+                   ncomp = 2, multilevel = as.factor(nomissunk.plsda$id))
+plotIndiv(splsda.diet.unk, comp = c(1,2),
+          ind.names = FALSE, 
+          ellipse = TRUE, legend = TRUE, title="")
+listvarunk <- selectVar(splsda.diet.unk)
+set.seed(34)  # for reproducible results for this code
+dietunk.perf.splsda = perf(splsda.diet.unk, validation = 'Mfold', folds = 5, 
+                           progressBar = FALSE, nrepeat = 10, dist = 'max.dist',auc=TRUE)
+dietunk.perf.splsda$error.rate
+plot(dietunk.perf.splsda)
+dietunk.perf.splsda.loo = perf(splsda.diet.unk, validation = 'loo', 
+                        progressBar = FALSE, auc=TRUE)
+auc_save_unk <- dietunk.perf.splsda.loo$auc$comp1[1]
+dietunk.auroc <- auroc(splsda.diet.unk)
+
 # can we do a PCA plot with 4 groups (i.e., cross-tab of PCO and diet)
 fourgroup.nm <- nomissdf_nounk.log.nm
 pcos <- grep("P",rownames(fourgroup.nm$groupdata))
@@ -547,7 +578,7 @@ HeatMap(featuredata = nomissdf_nounk.log.nm$featuredata,groupdata = nomissdf_nou
         colramp=c(75,"magenta","green"),key=FALSE,dendrogram = "both",saveplot = TRUE,margins = c(10,22),cexRow = 0.2,plotname="Two group heatmap")
 ```
 
-# Clustered image map
+# Clustered image map using top 30 known metabolites
 
 This plot is similar to a heat map but based on sPLS analysis.
 
@@ -555,25 +586,26 @@ This plot is similar to a heat map but based on sPLS analysis.
 knitr::include_graphics("C:\\temp\\cim.jpeg")
 ```
 
-# Scatter plot representation of sPLS-DA
+# Scatter plot representation of sPLS-DA, using all metabolites
 ```{r, echo=FALSE}
 suppressPackageStartupMessages(library(mixOmics))
-plotIndiv(splsda.diet, comp = c(1,2),
+plotIndiv(splsda.diet.unk, comp = c(1,2),
           ind.names = FALSE, 
           ellipse = TRUE, legend = TRUE, title="")
 ```
 
-# ROC for diet vs. no diet classification
+# ROC for diet vs. no diet classification, using all metabolites
 ```{r, echo=FALSE}
-diet.auroc 
+dietunk.auroc 
 ```
 
 # Evaluation of sPLS-DA model
 
-Leave-one-out cross-validation was used to examine the performance of the sPLS-DA model based on diet vs. no-diet. 
+Leave-one-out cross-validation was used to examine the performance of the sPLS-DA model based on diet vs. no-diet, using all metabolites. 
 
- Overall Error rate : `r diet.perf.splsda.loo$error.rate$overall[1,1]`
- AUC: `r auc_save[1]`
+ Overall Error rate component 1: `r dietunk.perf.splsda.loo$error.rate$overall`
+ AUC: `r auc_save_unk[1]`
+
 
 # Relative log difference for compounds that were significantly different by moderated t-test
 ```{r, echo=F}

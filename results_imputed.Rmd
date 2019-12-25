@@ -563,6 +563,11 @@ plotIndiv(splsda.diet, comp = c(1,2),
           ellipse = TRUE, legend = TRUE, title="")
 ```
 
+# ROC for diet vs. no diet classification
+```{r, echo=FALSE}
+diet.auroc 
+```
+
 # Evaluation of sPLS-DA model
 
 Leave-one-out cross-validation was used to examine the performance of the sPLS-DA model based on diet vs. no-diet. 

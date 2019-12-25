@@ -271,14 +271,14 @@ dev.off()
 
 
 # RLA plot
-RlaPlots(featuredata=nomissdf_nounk.log.nm$featuredata,groupdata=nomissdf_nounk.log.nm$groupdata, type="ag",
-         saveinteractiveplot = T,interactiveonly = T)
-RlaPlots(featuredata=nomissdf_nounk.log.nm$featuredata,groupdata=nomissdf_nounk.log.nm$groupdata, type="ag",
-         saveplot = TRUE,plotname = "rla1",savetype = "jpeg")
-RlaPlots(featuredata=nomissdf_nounk.log.nm$featuredata,groupdata=nomissdf_nounk.log.nm$groupdata, type="wg",
-         saveplot = TRUE,plotname = "C:\\Temp\\rla2",savetype = "jpeg")
-RlaPlots(featuredata=nomissdf_nounk.log.nm$featuredata,groupdata=nomissdf_nounk.log.nm$groupdata, type="wg",
-         saveinteractiveplot = T,saveplot = TRUE,plotname = "C:\\Temp\\rla2",savetype = "jpeg")
+# RlaPlots(featuredata=nomissdf_nounk.log.nm$featuredata,groupdata=nomissdf_nounk.log.nm$groupdata, type="ag",
+#          saveinteractiveplot = T,interactiveonly = T)
+# RlaPlots(featuredata=nomissdf_nounk.log.nm$featuredata,groupdata=nomissdf_nounk.log.nm$groupdata, type="ag",
+#          saveplot = TRUE,plotname = "rla1",savetype = "jpeg")
+# RlaPlots(featuredata=nomissdf_nounk.log.nm$featuredata,groupdata=nomissdf_nounk.log.nm$groupdata, type="wg",
+#          saveplot = TRUE,plotname = "C:\\Temp\\rla2",savetype = "jpeg")
+# RlaPlots(featuredata=nomissdf_nounk.log.nm$featuredata,groupdata=nomissdf_nounk.log.nm$groupdata, type="wg",
+#          saveinteractiveplot = T,saveplot = TRUE,plotname = "C:\\Temp\\rla2",savetype = "jpeg")
 
 # create dataset for PLS-DA
 # create variable for PCO status
@@ -358,6 +358,8 @@ diet.perf.splsda = perf(splsda.diet, validation = 'Mfold', folds = 5,
                            progressBar = FALSE, nrepeat = 10, dist = 'max.dist',auc=TRUE)
 diet.perf.splsda$error.rate
 plot(diet.perf.splsda)
+auc_save <- diet.perf.splsda$auc$comp1[1]
+diet.auroc <- auroc(splsda.diet)
 list1 <- selectVar(splsda.diet, comp = 1)$value
 # splsda but keep only top 30 compounds
 splsda.diet30 = splsda(X = nomiss.plsda[,c(4:168)], Y=as.factor(nomiss.plsda$Group), 
@@ -368,10 +370,6 @@ cim(splsda.diet30, row.sideColors = color.mixo(as.factor(nomiss.plsda$Group)), r
     save="jpeg",
     name.save = "C:\\temp\\cim",margins =c(20,20) )
 dev.off()
-diet.perf.splsda.loo = perf(splsda.diet, validation = 'loo', 
-                        progressBar = FALSE, auc=TRUE)
-auc_save <- diet.perf.splsda.loo$auc$comp1[1]
-diet.auroc <- auroc(splsda.diet)
 
 # biplot with top 20 compounds
 splsda.diet20 = splsda(X = nomiss.plsda[,c(4:168)], Y=as.factor(nomiss.plsda$Group), 
@@ -380,60 +378,6 @@ ind.coord <- splsda.diet20$variates$X[, 1:2]
 var.coord = plotVar(splsda.diet20,var.names = FALSE)[,c("x","y")]
 biplot(ind.coord,var.coord,xlabs=as.factor(nomiss.plsda$Group))
 abline(h=0,v=0,lty=2)
-
-# PLSDA for PCOS vs no PCOS will not converge
-# now for pcos
-# need to do imputation by PCOS group
-# gooddata.pcos <- gooddata.format
-# for (i in 1:nrow(gooddata.pcos)) {
-#   gooddata.pcos$PCOS[i] <- ifelse(substring(row.names(gooddata.pcos[i,]),1,1)=="P",1,0)
-# }
-# gooddata.pcos$Group <- gooddata.pcos$PCOS
-# nomiss.pcos <- MissingValues(gooddata.pcos,column.cutoff = 0.95,group.cutoff = 0.7,saveoutput = TRUE,
-#                         outputname = "C:\\Temp\\newoutput_pcos",complete.matrix = TRUE)
-# nomissdf_pcos <- fread("C:\\Temp\\newoutput_pcos.csv",header=TRUE)
-# nomissdf_pcos <- nomissdf_pcos[,-1]
-# for (i in 1:nrow(nomissdf_pcos)) {
-#   row.names(nomissdf_pcos)[i] <- row.names(gooddata.pcos)[i] 
-# }
-# nomissdf_pcos <- as.data.frame(nomissdf_pcos)
-# nomissdf_nounk_pcos <-  nomissdf[, -grep("UNK",colnames(nomissdf_pcos))]
-# for (i in 1:nrow(nomissdf_nounk_pcos)) {
-#   nomissdf_nounk_pcos$PCOS[i] <- ifelse(substring(row.names(nomissdf_nounk_pcos[i,]),1,1)=="P",1,0)
-# }
-# nomissdf_nounk_pcos$Group <- nomissdf_nounk_pcos$PCOS
-# nomissdf_nounk_pcos.log <- LogTransform(nomissdf_nounk_pcos)$output
-# nomiss.plsda_pcos <- nomissdf_nounk_pcos
-# nomiss.plsda_pcos$id <- row.names(nomiss.plsda_pcos)
-# nomiss.plsda_pcos$id <- gsub("P", "", nomiss.plsda_pcos$id)
-# nomiss.plsda_pcos$id <- gsub("C", "", nomiss.plsda_pcos$id)
-# nomiss.plsda_pcos$id <- gsub("diet", "", nomiss.plsda_pcos$id)
-# nomiss.plsda_pcos$id <- gsub("No-", "", nomiss.plsda_pcos$id)
-# nomiss.plsda_pcos <- nomiss.plsda_pcos[,c(1,167,168,2:166)]
-# splsda.pcos = splsda(X = nomiss.plsda_pcos[,c(4:168)], Y=as.factor(nomiss.plsda_pcos$PCOS), 
-#                      ncomp = 2, multilevel = as.factor(nomiss.plsda_pcos$id),max.iter = 10000)
-# plotIndiv(splsda.pcos, comp = c(1,2),
-#           ind.names = FALSE, 
-#           ellipse = TRUE, legend = TRUE)
-# set.seed(34)  # for reproducible results for this code
-# pcos.perf.splsda = perf(splsda.pcos, validation = 'Mfold', folds = 5, 
-#                         progressBar = FALSE, nrepeat = 10, dist = 'max.dist',auc=TRUE)
-# pcos.perf.splsda$error.rate
-# plot(pcos.perf.splsda)
-# head(selectVar(splsda.pcos, comp = 1)$value) 
-# cim(splsda.pcos, row.sideColors = color.mixo(as.factor(nomiss.plsda$PCOS)))
-# pcos.auroc <- auroc(splsda.pcos)
-# ROC for splsda
-#auroc(splsda.srbct,newdata=splsda.srbct$input.X,outcome.test = as.factor(splsda.srbct$Y),plot=TRUE)
-#auroc(splsda.pcos,newdata=splsda.pcos$input.X,outcome.test = as.factor(splsda.pcos$Y),plot=TRUE)
-# why is this not converging?
-# probably because there are only a handful of controls
-#nomiss.plsda_pcos.log <- nomiss.plsda_pcos[,-(2:3)]
-#nomiss.plsda_pcos.log <- LogTransform(nomiss.plsda_pcos.log)$output
-# HeatMap 
-#HeatMap(nomiss.plsda_pcos.log,colramp=redgreen(75),margins = c(5,10),key=FALSE,dendrogram = "both")
-# PCA plot
-#PcaPlots(nomiss.plsda_pcos.log,scale=TRUE, center=TRUE)
 
 # PLS-DA including unknowns
 nomissunk.plsda$Group_char[nomissunk.plsda$Group==0] <- "No Diet"
@@ -449,10 +393,69 @@ dietunk.perf.splsda = perf(splsda.diet.unk, validation = 'Mfold', folds = 5,
                            progressBar = FALSE, nrepeat = 10, dist = 'max.dist',auc=TRUE)
 dietunk.perf.splsda$error.rate
 plot(dietunk.perf.splsda)
-dietunk.perf.splsda.loo = perf(splsda.diet.unk, validation = 'loo', 
-                        progressBar = FALSE, auc=TRUE)
-auc_save_unk <- dietunk.perf.splsda.loo$auc$comp1[1]
+auc_save_unk <- dietunk.perf.splsda$auc$comp1[1]
 dietunk.auroc <- auroc(splsda.diet.unk)
+
+
+# now for pcos
+# need to do imputation by PCOS group
+gooddata.pcos <- gooddata.format
+for (i in 1:nrow(gooddata.pcos)) {
+  gooddata.pcos$PCOS[i] <- ifelse(substring(row.names(gooddata.pcos[i,]),1,1)=="P",1,0)
+}
+gooddata.pcos$Visit <- gooddata.pcos$Group
+gooddata.pcos$Group <- gooddata.pcos$PCOS
+nomiss.pcos <- MissingValues(gooddata.pcos,feature.cutoff = 0.95,sample.cutoff = 0.8,saveoutput = TRUE,
+                        outputname = "C:\\Temp\\newoutput_pcos")
+nomissdf_pcos <- fread("C:\\Temp\\newoutput_pcos_featuredata.csv",header=TRUE)
+nomissdf_pcos <- nomissdf_pcos[,-1]
+nomissdf_pcos <- as.data.frame(nomissdf_pcos)
+for (i in 1:nrow(nomissdf_pcos)) {
+  row.names(nomissdf_pcos)[i] <- row.names(gooddata.pcos)[i]
+}
+#nomissdf_nounk_pcos <-  nomissdf[, -grep("UNK",colnames(nomissdf_pcos))]
+for (i in 1:nrow(nomissdf_pcos)) {
+  nomissdf_pcos$PCOS[i] <- ifelse(substring(row.names(nomissdf_pcos[i,]),1,1)=="P",1,0)
+}
+nomissdf_pcos$Group <- nomissdf_pcos$PCOS
+nomiss.plsda_pcos <- nomissdf_pcos
+nomiss.plsda_pcos$id <- row.names(nomiss.plsda_pcos)
+nomiss.plsda_pcos$id <- gsub("P", "", nomiss.plsda_pcos$id)
+nomiss.plsda_pcos$id <- gsub("C", "", nomiss.plsda_pcos$id)
+nomiss.plsda_pcos$id <- gsub("diet", "", nomiss.plsda_pcos$id)
+nomiss.plsda_pcos$id <- gsub("No-", "", nomiss.plsda_pcos$id)
+nomiss.plsda_pcos <- nomiss.plsda_pcos[,c(1,6695,6696,2:6694)]
+splsda.pcos = splsda(X = nomiss.plsda_pcos[,c(4:6694)], Y=as.factor(nomiss.plsda_pcos$PCOS),
+                     ncomp = 2, multilevel = as.factor(nomiss.plsda_pcos$id),max.iter = 100000,near.zero.var=TRUE,tol=0.1)
+plotIndiv(splsda.pcos, comp = c(1,2),
+          ind.names = FALSE,
+          ellipse = TRUE, legend = TRUE)
+set.seed(34)  # for reproducible results for this code
+#pcos.perf.splsda = perf(splsda.pcos, validation = 'Mfold', folds = 3,
+  #                      progressBar = FALSE, nrepeat = 10, dist = 'max.dist',auc=TRUE)
+
+
+# try sPLS-DA for PCOS vs. control in diet and fasting samples separately
+splsda.pcos.diet = splsda(X = nomiss.plsda_pcos[nomiss.plsda_pcos$Visit==1,c(4:6694)], Y=as.factor(nomiss.plsda_pcos[nomiss.plsda_pcos$Visit==1,]$PCOS),
+                     ncomp = 2, max.iter = 100000,near.zero.var=TRUE,tol=0.1)
+plotIndiv(splsda.pcos.diet, comp = c(1,2),
+          ind.names = FALSE,
+          ellipse = TRUE, legend = TRUE,title="")
+pcos.perf.splsda.diet = perf(splsda.pcos.diet, validation = 'Mfold', folds = 3,
+                      progressBar = FALSE, nrepeat = 10, dist = 'max.dist',auc=TRUE)
+pcos.perf.splsda.diet$error.rate
+pcos.perf.splsda.diet$auc
+
+# try sPLS-DA for PCOS vs. control in diet and fasting samples separately
+splsda.pcos.nodiet = splsda(X = nomiss.plsda_pcos[nomiss.plsda_pcos$Visit==0,c(4:6694)], Y=as.factor(nomiss.plsda_pcos[nomiss.plsda_pcos$Visit==0,]$PCOS),
+                     ncomp = 2, max.iter = 100000,near.zero.var=TRUE,tol=0.1)
+plotIndiv(splsda.pcos.nodiet, comp = c(1,2),
+          ind.names = FALSE,
+          ellipse = TRUE, legend = TRUE,title="")
+pcos.perf.splsda.nodiet = perf(splsda.pcos.nodiet, validation = 'Mfold', folds = 3,
+                      progressBar = FALSE, nrepeat = 10, dist = 'max.dist',auc=TRUE)
+pcos.perf.splsda.nodiet$error.rate
+pcos.perf.splsda.nodiet$auc
 
 # can we do a PCA plot with 4 groups (i.e., cross-tab of PCO and diet)
 fourgroup.nm <- nomissdf_nounk.log.nm
@@ -571,6 +574,11 @@ suppressPackageStartupMessages(library(NormalizeMets))
 VolcanoPlot(coef=modfit_nona$coefficients[,1], pvals=modfit_nona$adj.p.value[,1],plimit=0.05,interactiveonly = FALSE,ylab="-log(q-value)",labelsig = FALSE)
 ```
 
+# Relative log difference for compounds that were significantly different by moderated t-test
+```{r, echo=F}
+p
+```
+
 # Heat map
 ```{r, echo=FALSE}
 suppressPackageStartupMessages(library(NormalizeMets))
@@ -601,16 +609,10 @@ dietunk.auroc
 
 # Evaluation of sPLS-DA model
 
-Leave-one-out cross-validation was used to examine the performance of the sPLS-DA model based on diet vs. no-diet, using all metabolites. 
+5-fold cross-validation was used to examine the performance of the sPLS-DA model based on diet vs. no-diet, using all metabolites. 
 
- Overall Error rate component 1: `r dietunk.perf.splsda.loo$error.rate$overall`
+ Overall Error rate component 1: `r dietunk.perf.splsda$error.rate$overall`
  AUC: `r auc_save_unk[1]`
-
-
-# Relative log difference for compounds that were significantly different by moderated t-test
-```{r, echo=F}
-p
-```
 
 # Boxplots for compounds that were significantly different by moderated t-test
 ```{r plotnumeric, echo=FALSE}
@@ -618,6 +620,45 @@ p
 for (i in 1:length(keep)) {
   boxplot(nomissdf_nounk.log$featuredata[,paste0(keep[i])]~nomissdf_nounk.log$featuredata[,1],names=c('No Diet','Diet'),main=paste0(keep[i]),ylab="",xlab="")
 }
-
-
 ```
+
+# Scatter plot representation of sPLS-DA for PCOS, using all metabolites
+```{r, echo=FALSE}
+suppressPackageStartupMessages(library(mixOmics))
+plotIndiv(splsda.pcos, comp = c(1,2),
+          ind.names = FALSE,
+          ellipse = TRUE, legend = TRUE,title="")
+```
+
+# Evaluation of sPLS-DA model for PCOS
+
+3-fold cross-validation was used to examine the performance of the sPLS-DA model based on PCOS vs. control, using all metabolites. For some reason, these will not print in the markdown file.
+
+# Scatter plot representation of sPLS-DA for PCOS, using all metabolites, clamp visit only
+```{r, echo=FALSE}
+plotIndiv(splsda.pcos.diet, comp = c(1,2),
+          ind.names = FALSE,
+          ellipse = TRUE, legend = TRUE,title="")
+```
+
+# Evaluation of sPLS-DA model for clamp visit only
+
+3-fold cross-validation was used to examine the performance of the sPLS-DA model based on PCOS vs. control, using all metabolites, clamp visit samples only. 
+
+ Overall Error rate : `r pcos.perf.splsda.diet$error.rate`
+ AUC: `r pcos.perf.splsda.diet$auc`
+
+# Scatter plot representation of sPLS-DA for PCOS, using all metabolites, fasting visit only
+```{r, echo=FALSE}
+plotIndiv(splsda.pcos.nodiet, comp = c(1,2),
+          ind.names = FALSE,
+          ellipse = TRUE, legend = TRUE,title="")
+```
+
+# Evaluation of sPLS-DA model for fasting visit only
+
+3-fold cross-validation was used to examine the performance of the sPLS-DA model based on PCOS vs. control, using all metabolites, fasting visit samples only. 
+
+ Overall Error rate : `r pcos.perf.splsda.nodiet$error.rate`
+ AUC: `r pcos.perf.splsda.nodiet$auc`
+

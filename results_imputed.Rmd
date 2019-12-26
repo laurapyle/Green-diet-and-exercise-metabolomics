@@ -403,7 +403,6 @@ gooddata.pcos <- gooddata.format
 for (i in 1:nrow(gooddata.pcos)) {
   gooddata.pcos$PCOS[i] <- ifelse(substring(row.names(gooddata.pcos[i,]),1,1)=="P",1,0)
 }
-gooddata.pcos$Visit <- gooddata.pcos$Group
 gooddata.pcos$Group <- gooddata.pcos$PCOS
 nomiss.pcos <- MissingValues(gooddata.pcos,feature.cutoff = 0.95,sample.cutoff = 0.8,saveoutput = TRUE,
                         outputname = "C:\\Temp\\newoutput_pcos")
@@ -414,10 +413,10 @@ for (i in 1:nrow(nomissdf_pcos)) {
   row.names(nomissdf_pcos)[i] <- row.names(gooddata.pcos)[i]
 }
 #nomissdf_nounk_pcos <-  nomissdf[, -grep("UNK",colnames(nomissdf_pcos))]
-for (i in 1:nrow(nomissdf_pcos)) {
-  nomissdf_pcos$PCOS[i] <- ifelse(substring(row.names(nomissdf_pcos[i,]),1,1)=="P",1,0)
-}
-nomissdf_pcos$Group <- nomissdf_pcos$PCOS
+# for (i in 1:nrow(nomissdf_pcos)) {
+#   nomissdf_pcos$PCOS[i] <- ifelse(substring(row.names(nomissdf_pcos[i,]),1,1)=="P",1,0)
+# }
+# nomissdf_pcos$Group <- nomissdf_pcos$PCOS
 nomiss.plsda_pcos <- nomissdf_pcos
 nomiss.plsda_pcos$id <- row.names(nomiss.plsda_pcos)
 nomiss.plsda_pcos$id <- gsub("P", "", nomiss.plsda_pcos$id)
@@ -436,7 +435,27 @@ set.seed(34)  # for reproducible results for this code
 
 
 # try sPLS-DA for PCOS vs. control in diet and fasting samples separately
-splsda.pcos.diet = splsda(X = nomiss.plsda_pcos[nomiss.plsda_pcos$Visit==1,c(4:6694)], Y=as.factor(nomiss.plsda_pcos[nomiss.plsda_pcos$Visit==1,]$PCOS),
+gooddata.pcos.diet <- gooddata.format[gooddata.format$Group==1,]
+for (i in 1:nrow(gooddata.pcos.diet)) {
+  gooddata.pcos.diet$PCOS[i] <- ifelse(substring(row.names(gooddata.pcos.diet[i,]),1,1)=="P",1,0)
+}
+gooddata.pcos.diet$Group <- gooddata.pcos.diet$PCOS
+nomiss.pcos.diet <- MissingValues(gooddata.pcos.diet,feature.cutoff = 0.95,sample.cutoff = 0.8,saveoutput = TRUE,
+                        outputname = "C:\\Temp\\newoutput_pcos_diet")
+nomiss.pcos.diet <- fread("C:\\Temp\\newoutput_pcos_diet_featuredata.csv",header=TRUE)
+nomiss.pcos.diet <- nomiss.pcos.diet[,-1]
+nomissdf_pcos_diet <- as.data.frame(nomiss.pcos.diet)
+for (i in 1:nrow(nomissdf_pcos_diet)) {
+  row.names(nomissdf_pcos_diet)[i] <- row.names(nomissdf_pcos_diet)[i]
+}
+nomiss.plsda_pcos_diet <- nomissdf_pcos_diet
+nomiss.plsda_pcos_diet$id <- row.names(nomiss.plsda_pcos_diet)
+nomiss.plsda_pcos_diet$id <- gsub("P", "", nomiss.plsda_pcos_diet$id)
+nomiss.plsda_pcos_diet$id <- gsub("C", "", nomiss.plsda_pcos_diet$id)
+nomiss.plsda_pcos_diet$id <- gsub("diet", "", nomiss.plsda_pcos_diet$id)
+nomiss.plsda_pcos_diet$id <- gsub("No-", "", nomiss.plsda_pcos_diet$id)
+nomiss.plsda_pcos_diet <- nomiss.plsda_pcos_diet[,c(1,6612,6613,2:6611)]
+splsda.pcos.diet = splsda(X = nomiss.plsda_pcos_diet[,c(4:6613)], Y=as.factor(nomiss.plsda_pcos_diet$PCOS),
                      ncomp = 2, max.iter = 100000,near.zero.var=TRUE,tol=0.1)
 plotIndiv(splsda.pcos.diet, comp = c(1,2),
           ind.names = FALSE,
@@ -447,7 +466,27 @@ pcos.perf.splsda.diet$error.rate
 pcos.perf.splsda.diet$auc
 
 # try sPLS-DA for PCOS vs. control in diet and fasting samples separately
-splsda.pcos.nodiet = splsda(X = nomiss.plsda_pcos[nomiss.plsda_pcos$Visit==0,c(4:6694)], Y=as.factor(nomiss.plsda_pcos[nomiss.plsda_pcos$Visit==0,]$PCOS),
+gooddata.pcos.nodiet <- gooddata.format[gooddata.format$Group==0,]
+for (i in 1:nrow(gooddata.pcos.nodiet)) {
+  gooddata.pcos.nodiet$PCOS[i] <- ifelse(substring(row.names(gooddata.pcos.nodiet[i,]),1,1)=="P",1,0)
+}
+gooddata.pcos.nodiet$Group <- gooddata.pcos.nodiet$PCOS
+nomiss.pcos.nodiet <- MissingValues(gooddata.pcos.nodiet,feature.cutoff = 0.95,sample.cutoff = 0.8,saveoutput = TRUE,
+                        outputname = "C:\\Temp\\newoutput_pcos_nodiet")
+nomiss.pcos.nodiet <- fread("C:\\Temp\\newoutput_pcos_nodiet_featuredata.csv",header=TRUE)
+nomiss.pcos.nodiet <- nomiss.pcos.nodiet[,-1]
+nomissdf_pcos_nodiet <- as.data.frame(nomiss.pcos.nodiet)
+for (i in 1:nrow(nomissdf_pcos_nodiet)) {
+  row.names(nomissdf_pcos_nodiet)[i] <- row.names(nomissdf_pcos_nodiet)[i]
+}
+nomiss.plsda_pcos_nodiet <- nomissdf_pcos_nodiet
+nomiss.plsda_pcos_nodiet$id <- row.names(nomiss.plsda_pcos_nodiet)
+nomiss.plsda_pcos_nodiet$id <- gsub("P", "", nomiss.plsda_pcos_nodiet$id)
+nomiss.plsda_pcos_nodiet$id <- gsub("C", "", nomiss.plsda_pcos_nodiet$id)
+nomiss.plsda_pcos_nodiet$id <- gsub("diet", "", nomiss.plsda_pcos_nodiet$id)
+nomiss.plsda_pcos_nodiet$id <- gsub("No-", "", nomiss.plsda_pcos_nodiet$id)
+nomiss.plsda_pcos_nodiet <- nomiss.plsda_pcos_nodiet[,c(1,6672,6673,2:6671)]
+splsda.pcos.nodiet = splsda(X = nomiss.plsda_pcos_nodiet[,c(4:6673)], Y=as.factor(nomiss.plsda_pcos_nodiet$PCOS),
                      ncomp = 2, max.iter = 100000,near.zero.var=TRUE,tol=0.1)
 plotIndiv(splsda.pcos.nodiet, comp = c(1,2),
           ind.names = FALSE,
@@ -643,10 +682,7 @@ plotIndiv(splsda.pcos.diet, comp = c(1,2),
 
 # Evaluation of sPLS-DA model for clamp visit only
 
-3-fold cross-validation was used to examine the performance of the sPLS-DA model based on PCOS vs. control, using all metabolites, clamp visit samples only. 
-
- Overall Error rate : `r pcos.perf.splsda.diet$error.rate`
- AUC: `r pcos.perf.splsda.diet$auc`
+3-fold cross-validation was used to examine the performance of the sPLS-DA model based on PCOS vs. control, using all metabolites, clamp visit samples only. Again, these will not print for some reason.
 
 # Scatter plot representation of sPLS-DA for PCOS, using all metabolites, fasting visit only
 ```{r, echo=FALSE}
@@ -657,8 +693,6 @@ plotIndiv(splsda.pcos.nodiet, comp = c(1,2),
 
 # Evaluation of sPLS-DA model for fasting visit only
 
-3-fold cross-validation was used to examine the performance of the sPLS-DA model based on PCOS vs. control, using all metabolites, fasting visit samples only. 
+3-fold cross-validation was used to examine the performance of the sPLS-DA model based on PCOS vs. control, using all metabolites, fasting visit samples only. Again, these will not print for some reason.
 
- Overall Error rate : `r pcos.perf.splsda.nodiet$error.rate`
- AUC: `r pcos.perf.splsda.nodiet$auc`
 

@@ -75,6 +75,24 @@ alldata$id <- gsub("Control6164-", "", alldata$id)
 alldata$uniqueid <- paste(substr(alldata$longid,1,1),alldata$Batch,alldata$id,sep="")
 row.names(alldata) <- alldata$uniqueid
 
+# divide data into diet and nodiet
+diet <- alldata[alldata$Batch=="diet",]
+nodiet <- alldata[alldata$Batch=="No-diet",]
+# how many compounds have no missing data
+countnomiss <- function(data) {
+  tempct <- sapply(data, function(x) sum(is.na(x)))
+  tempct <- ifelse(tempct==21,1,0)
+  a <- sum(tempct)
+  return(a)
+}
+countnomiss(diet)
+countnomiss(nodiet)
+# more variables without missing data under diet condition
+
+# histogram of number of missing values
+hist(sapply(diet, function(x) sum(is.na(x))))
+hist(sapply(nodiet, function(x) sum(is.na(x))))
+
 # check how  many compounds are known
 check_knowns <- alldata[, -grep("UNK",colnames(alldata))]
 

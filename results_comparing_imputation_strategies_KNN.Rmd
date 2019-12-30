@@ -1,5 +1,5 @@
 ---
-title: "Diet and activity metabolomics"
+title: "Diet and activity metabolomics - comparing imputation strategies, KNN"
 author: "Laura Pyle"
 date: "`r format(Sys.time(), '%d %B %Y')`"
 output: word_document
@@ -10,10 +10,7 @@ editor_options:
 ```{r setup, include=FALSE}
 library(knitr)
 
-
 knitr::opts_chunk$set(echo = FALSE,cache = FALSE)
-
-#source("C:\\Users\\pylell\\Documents\\GitHub\\Green-diet-and-exercise-metabolomics\\analysis_nounk_nomiss.r")
 
 setwd("H:\\Endocrinology\\Green\\Metabolomics papers\\Diet and exercise\\Data\\")
 
@@ -136,272 +133,6 @@ temp <- gooddata[,-c(1:3)]
 cn <- ncol(temp)
 gooddata.format <- temp[,c(cn,1:(cn-1))]
 
-# impute missing data
-nomiss <- MissingValues(gooddata.format,feature.cutoff = 0.95,sample.cutoff = 0.8,saveoutput = TRUE,
-                        outputname = "C:\\Temp\\newoutput")
-nomissdf <- fread("C:\\Temp\\newoutput_featuredata.csv",header=TRUE)
-nomissdf <- nomissdf[,-1]
-nomissdf <- as.data.frame(nomissdf)
-for (i in 1:nrow(nomissdf)) {
-  row.names(nomissdf)[i] <- row.names(gooddata.format)[i] 
-}
-nomissdf_nounk <-  nomissdf[, -grep("UNK",colnames(nomissdf))]
-nomiss_nounk <- NULL
-nomiss_nounk$featuredata <- nomiss$featuredata[, -grep("UNK",colnames(nomiss$featuredata))]
-nomiss_nounk$sampledata <- nomiss$sampledata
-nomiss_nounk$metabolitedata <- nomiss$metabolitedata[-grep("UNK",nomiss$metabolitedata)]
-#colnames(nomissdf_nounk) <- sub("\\(.*","",colnames(nomissdf_nounk))
-nomissdf_nounk.log <- LogTransform(nomissdf_nounk)
-nomissdf_nounk.log$featuredata[,1] <-  nomissdf_nounk[,1]
-
-#Separating by diet/no diet
-nomissdf_nounk.group<-factor(nomissdf_nounk.log$featuredata[,1],levels=unique(nomissdf_nounk.log$featuredata[,1]))
-dietmat_nounk <- NULL
-nodietmat_nounk <- NULL
-dietmat_nounk$featuredata<-nomissdf_nounk.log$featuredata[which(nomissdf_nounk.log$featuredata[,1]==1),-1]
-nodietmat_nounk$featuredata<-nomissdf_nounk.log$featuredata[which(nomissdf_nounk.log$featuredata[,1]==0),-1]
-
-#Linear model fit with ordinary statistics
-ordFit<-LinearModelFit(featuredata=data.matrix(dietmat_nounk$featuredata-nodietmat_nounk$featuredata),
-                       ruv2=FALSE,
-                       factormat=matrix(1,nrow=nrow(dietmat_nounk$featuredata)),
-                       outputname = "H:\\Endocrinology\\Green\\Metabolomics papers\\Diet and exercise\\Data\\ordFit",
-                       saveoutput = TRUE)
-# TwoGroupPlots(nomissdf_nounk.log$featuredata[,-1],
-#               tstats = ordFit$t[,1],
-#               foldchanges = ordFit$coef[,1],
-#               pvalues = ordFit$p.val[,1],
-#               padjmethod = "BH",
-#               fcutoff = log(2),
-#               pcutoff = 0.05)
-# some compounds have NA's for p-values
-
-# testing limma
-limtest <- lmFit(data.matrix(t(dietmat_nounk$featuredata)-t(nodietmat_nounk$featuredata)),
-                 factormat=matrix(1,nrow=nrow(t(dietmat_nounk$featuredata))))
-
-# write dataframe to file so I can compare to metabolomics
-write.csv(dietmat_nounk$featuredata-nodietmat_nounk$featuredata,"H:\\Endocrinology\\Green\\Metabolomics papers\\Diet and exercise\\Data\\diet minus nodiet.csv")
-
-#Linear model fit with moderated statistics
-modFit<-LinearModelFit(featuredata=data.matrix(dietmat_nounk$featuredata-nodietmat_nounk$featuredata),
-                       ruv2=FALSE,
-                       moderated=TRUE,
-                       factormat=matrix(1,nrow=nrow(dietmat_nounk$featuredata)),
-                       outputname = "H:\\Endocrinology\\Green\\Metabolomics papers\\Diet and exercise\\Data\\modFit",
-                       saveoutput = TRUE)
-
-# BoxPlots for significant compounds
-sig <- read.csv(file="H:\\Endocrinology\\Green\\Metabolomics papers\\Diet and exercise\\Data\\modFit.csv")
-sig <- sig[sig$Adjusted.t.p.value.x1<0.05,]
-keep <- as.matrix(sig$X)
-
-# can we create a relative log abundance plot for top 20 compounds by moderated t-test
-sig_ord  <- sig
-sig_ord <- sig_ord %>% arrange(coeff.x1)
-sig_ord$X <- with(sig_ord, reorder(X,coeff.x1))
-p <- ggplot(data=sig_ord, aes(x=X, y=coeff.x1,ymin=Lower.CI.x1,ymax=Upper.CI.x1)) + 
-  geom_pointrange() + geom_hline(yintercept=0, lty=2) +
-  coord_flip() + xlab("") + ylab("Mean Log Difference (Diet-No Diet)") +
-  theme(axis.text.x = element_text(size=8), text=element_text(size=8))
-
-# get fold change for knowns
-fc_nounk <- as.data.frame(FoldChange(nomissdf_nounk.log$featuredata,paired=TRUE))
-fc_nounk$Compound <- rownames(fc_nounk)
-fc_nounk <- as.data.frame(fc_nounk[,-1])
-colnames(fc_nounk) <- c("FC","X")
-# merge fold change with results of moderated t-test for input into Metscape
-temp <- read.csv("H:\\Endocrinology\\Green\\Metabolomics papers\\Diet and exercise\\Data\\modFit_nounk.csv")
-metscape <- merge(temp,fc_nounk,by="X")
-metscape <- metscape[,c(1,8,10)]
-annotated <- read.csv("H:\\Endocrinology\\Green\\Metabolomics papers\\Diet and exercise\\Data\\formetscape_clean.csv")
-annotated <- annotated[,c(1:2)]
-metscape <- merge(metscape,annotated,by="X")
-write.csv(metscape,"H:\\Endocrinology\\Green\\Metabolomics papers\\Diet and exercise\\Data\\formetscape_imputed.csv")
-
-# Volcano plot using moderated t-test
-modfit_nona <- modFit[!is.na(modFit$p.value),]
-VolcanoPlot(coef=modfit_nona$coefficients[,1], pvals=modfit_nona$adj.p.value[,1],plimit=0.05,interactiveonly = FALSE,ylab="-log(q-value)",labelsig = FALSE, fclabel = "q<0.05")
-
-# Volcano plot using ordinary t-test
-test <- LinearModelFit(featuredata = data.matrix(dietmat_nounk$featuredata-nodietmat_nounk$featuredata),
-                                      ruv2=FALSE,
-                                      factormat=matrix(1,nrow=nrow(dietmat_nounk$featuredata)),
-                                      saveoutput = FALSE)
-coef_test <- test$coefficients
-coef_test <- as.vector(coef_test)
-temp_names <- row.names(test$coefficients)
-for (i in 1:length(temp_names)) {
-  temp_names[i] <- sub("\\(.*","",temp_names[i])
-}
-names(coef_test) <- temp_names
-NormalizeMets::VolcanoPlot(coef=coef_test,pvals =as.vector(test$p.value),labelsig = TRUE,cexlab=0.5,
-                           main="",interactiveplot = TRUE,xlim=c(-4,8))
-
-# for some of the analyses in NormalizeMets, need separate dfs with feature data and group data
-nomissdf_nounk.log.nm <- NULL
-nomissdf_nounk.log.nm$featuredata <- nomissdf_nounk.log$featuredata[,-c(1)]
-#nomissdf_nounk.log.nm$featuredata$Group <- NULL
-nomissdf_nounk.log.nm$groupdata <- as.data.frame(nomissdf_nounk.log$featuredata[,1])
-colnames(nomissdf_nounk.log.nm$groupdata)="Group"
-nomissdf_nounk.log.nm$metdata <- as.data.frame(colnames(nomissdf_nounk.log.nm$featuredata))
-colnames(nomissdf_nounk.log.nm$metdata)="Metabolite"
-rownames(nomissdf_nounk.log.nm$metdata)=colnames(nomissdf_nounk.log.nm$featuredata)
-
-# Dendrogram
-den <- Dendrogram(featuredata=nomissdf_nounk.log.nm$featuredata,groupdata = nomissdf_nounk.log.nm$groupdata$Group, clust = TRUE,nclust=2)
-# is there an interaction between diet and PCOS?  PCO group seem like they are more similar regardless of diet
-
-# HeatMap 
-HeatMap(featuredata = nomissdf_nounk.log.nm$featuredata,groupdata = nomissdf_nounk.log.nm$groupdata$Group,interactiveplot = FALSE,
-        colramp=c(75,"magenta","green"),key=FALSE,dendrogram = "both",saveplot = TRUE,margins = c(10,22),cexRow = 0.2,plotname="Two group heatmap")
-
-# PCA plot
-pcaplots <- NormalizeMets::PcaPlots(featuredata=nomissdf_nounk.log.nm$featuredata,
-                                    groupdata=nomissdf_nounk.log.nm$groupdata$Group,
-                                    scale=TRUE, center=TRUE,userinput = FALSE,saveplot = TRUE,savetype = "jpeg",
-                                    plotname="C:\\temp\\x",multiplot=TRUE,interactiveonly = FALSE,varplot = TRUE)
-dev.off()
-
-# trying PCA plot with confidence ellipses
-res.pca <- PCA(nomissdf_nounk.log.nm$featuredata[,-1], graph = FALSE)
-png("C:\\temp\\indplot_diet1.png")
-plot1 <- fviz_pca_ind(res.pca,
-             geom.ind = "point", # show points only (nbut not "text")
-             col.ind = as.factor(nomissdf_nounk.log.nm$groupdata$Group), # color by groups
-             palette = c("#00AFBB", "#E7B800"),
-             addEllipses = TRUE, # Concentration ellipse
-             title=""
-             )
-ggpubr::ggpar(plot1,
-              title = "",
-              subtitle = "",
-              caption = "",
-              xlab = "PC1", ylab = "PC2",
-              ggtheme = theme_gray(), palette = "jco")
-plot1 + scale_color_manual(labels=c("No Diet","Diet"),values= c("#00AFBB", "#E7B800"),"Group") +
-        scale_fill_manual(guide = 'none', values=c("#00AFBB", "#E7B800")) +
-        scale_shape_manual(guide = 'none', values=c(1,2))  +
-        labs(x="PC1",y="PC2")
-dev.off()
-
-# create dataset for PLS-DA
-# create variable for PCO status
-nomiss.plsda <- nomissdf_nounk
-for (i in 1:nrow(nomissdf_nounk)) {
-  nomiss.plsda$PCOS[i] <- ifelse(substring(row.names(nomissdf_nounk[i,]),1,1)=="P",1,0)
-}
-nomiss.plsda$id <- row.names(nomiss.plsda)
-nomiss.plsda$id <- gsub("P", "", nomiss.plsda$id)
-nomiss.plsda$id <- gsub("C", "", nomiss.plsda$id)
-nomiss.plsda$id <- gsub("diet", "", nomiss.plsda$id)
-nomiss.plsda$id <- gsub("No-", "", nomiss.plsda$id)
-nomiss.plsda <- nomiss.plsda[,c(1,174,175,2:173)]
-
-# dataset for PLS-DA using unknowns
-nomissunk.plsda <- nomissdf
-for (i in 1:nrow(nomissdf)) {
-  nomissunk.plsda$PCOS[i] <- ifelse(substring(row.names(nomissdf[i,]),1,1)=="P",1,0)
-}
-nomissunk.plsda$id <- row.names(nomissunk.plsda)
-nomissunk.plsda$id <- gsub("P", "", nomissunk.plsda$id)
-nomissunk.plsda$id <- gsub("C", "", nomissunk.plsda$id)
-nomissunk.plsda$id <- gsub("diet", "", nomissunk.plsda$id)
-nomissunk.plsda$id <- gsub("No-", "", nomissunk.plsda$id)
-nomissunk.plsda <- nomissunk.plsda[,c(1,6695,6696,2:6694)]
-
-# create dataset of demographics
-demo <- nomiss.plsda$PCOS
-temp <- as.data.frame(row.names(nomiss.plsda))
-demo <- cbind(demo,temp)
-colnames(demo) <- c("PCOS","id")
-demo$id <- gsub("P", "", demo$id)
-demo$id <- gsub("C", "", demo$id)
-demo$id <- gsub("diet", "", demo$id)
-demo$id <- gsub("No-", "", demo$id)
-temp <- read.csv("H:\\Endocrinology\\Green\\Metabolomics papers\\Diet and exercise\\Data\\demographics.csv")
-temp <- temp[c("subject_id","age","gender","ethnicity","tanner","bmi_percentile")]
-temp$id <- gsub("6164-", "", temp$subject_id) 
-demo <- merge(demo,temp,by="id")
-demo <- demo %>% distinct(id, .keep_all=TRUE)
-demo$dummy <- rep(1,nrow(demo))
-demo$gender <- as.factor(demo$gender)
-demo$tanner <- as.factor(demo$tanner)
-demo$bmi_percentile <- as.numeric(as.character(demo$bmi_percentile))
-# recode double race person to 1
-demo$ethnicity[demo$ethnicity=="1,2"] <- 1
-demo$ethnicity <- droplevels(demo$ethnicity)
-#label(demo$age)="Age"
-#label(demo$gender)="Gender"
-#label(demo$ethnicity)="Ethnicity"
-#label(demo$tanner)="Tanner"
-#label(demo$bmi_percentile)="BMI %ile"
-
-
-
-# table 1
-#tab1 <- final_table(data=demo,variables=c("age","gender","ethnicity","tanner","bmi_percentile"),
-#                    ron=2,group=as.factor(demo$PCOS),margin=2)
-
-myvars <- c("age","gender","ethnicity","tanner","bmi_percentile")
-tab1 <- CreateTableOne(vars=myvars, strata="PCOS",data=demo, test=TRUE)
-tab1 <- print(tab1,varLabels=TRUE,exact="ethnicity")
-
-# http://mixomics.org/mixmc/case-study-hmp-bodysites-repeated-measures/
-nomiss.plsda$Group_char[nomiss.plsda$Group==0] <- "No Diet"
-nomiss.plsda$Group_char[nomiss.plsda$Group==1] <- "Diet"
-splsda.diet = splsda(X = nomiss.plsda[,c(4:168)], Y=as.factor(nomiss.plsda$Group_char), 
-                   ncomp = 2, multilevel = as.factor(nomiss.plsda$id))
-plotIndiv(splsda.diet, comp = c(1,2),
-          ind.names = FALSE, 
-          ellipse = TRUE, legend = TRUE, title="")
-listvar <- selectVar(splsda.diet)
-listvar <- listvar$name[-grep("UNK
-                              ",listvar$name)]
-set.seed(34)  # for reproducible results for this code
-diet.perf.splsda = perf(splsda.diet, validation = 'Mfold', folds = 5, 
-                           progressBar = FALSE, nrepeat = 10, dist = 'max.dist',auc=TRUE)
-diet.perf.splsda$error.rate
-plot(diet.perf.splsda)
-auc_save <- diet.perf.splsda$auc$comp1[1]
-diet.auroc <- auroc(splsda.diet)
-list1 <- selectVar(splsda.diet, comp = 1)$value
-# splsda but keep only top 30 compounds
-splsda.diet30 = splsda(X = nomiss.plsda[,c(4:168)], Y=as.factor(nomiss.plsda$Group), 
-                   ncomp = 3, multilevel = as.factor(nomiss.plsda$id),keepX = 30)
-dev.new()
-cim(splsda.diet30, row.sideColors = color.mixo(as.factor(nomiss.plsda$Group)), row.names = FALSE, col.names=TRUE,
-    legend=list(legend=c("No Diet","Diet")),
-    save="jpeg",
-    name.save = "C:\\temp\\cim",margins =c(20,20) )
-dev.off()
-
-# biplot with top 20 compounds
-splsda.diet20 = splsda(X = nomiss.plsda[,c(4:168)], Y=as.factor(nomiss.plsda$Group), 
-                     ncomp = 2, multilevel = as.factor(nomiss.plsda$id),keepX = c(20, 20))
-ind.coord <- splsda.diet20$variates$X[, 1:2]
-var.coord = plotVar(splsda.diet20,var.names = FALSE)[,c("x","y")]
-biplot(ind.coord,var.coord,xlabs=as.factor(nomiss.plsda$Group))
-abline(h=0,v=0,lty=2)
-
-# PLS-DA including unknowns
-nomissunk.plsda$Group_char[nomissunk.plsda$Group==0] <- "No Diet"
-nomissunk.plsda$Group_char[nomissunk.plsda$Group==1] <- "Diet"
-splsda.diet.unk = splsda(X = nomissunk.plsda[,c(4:6696)], Y=as.factor(nomissunk.plsda$Group_char), 
-                   ncomp = 2, multilevel = as.factor(nomissunk.plsda$id))
-plotIndiv(splsda.diet.unk, comp = c(1,2),
-          ind.names = FALSE, 
-          ellipse = TRUE, legend = TRUE, title="")
-listvarunk <- selectVar(splsda.diet.unk)
-set.seed(34)  # for reproducible results for this code
-dietunk.perf.splsda = perf(splsda.diet.unk, validation = 'Mfold', folds = 5, 
-                           progressBar = FALSE, nrepeat = 10, dist = 'max.dist',auc=TRUE)
-dietunk.perf.splsda$error.rate
-plot(dietunk.perf.splsda)
-auc_save_unk <- dietunk.perf.splsda$auc$comp1[1]
-dietunk.auroc <- auroc(splsda.diet.unk)
-
-
 # now for pcos
 # need to do imputation by PCOS group
 gooddata.pcos <- gooddata.format
@@ -410,18 +141,13 @@ for (i in 1:nrow(gooddata.pcos)) {
 }
 gooddata.pcos$Group <- gooddata.pcos$PCOS
 nomiss.pcos <- MissingValues(gooddata.pcos,feature.cutoff = 0.95,sample.cutoff = 0.8,saveoutput = TRUE,
-                        outputname = "C:\\Temp\\newoutput_pcos")
-nomissdf_pcos <- fread("C:\\Temp\\newoutput_pcos_featuredata.csv",header=TRUE)
+                        outputname = "C:\\Temp\\newoutput_pcos_KNN")
+nomissdf_pcos <- fread("C:\\Temp\\newoutput_pcos_KNN_featuredata.csv",header=TRUE)
 nomissdf_pcos <- nomissdf_pcos[,-1]
 nomissdf_pcos <- as.data.frame(nomissdf_pcos)
 for (i in 1:nrow(nomissdf_pcos)) {
   row.names(nomissdf_pcos)[i] <- row.names(gooddata.pcos)[i]
 }
-#nomissdf_nounk_pcos <-  nomissdf[, -grep("UNK",colnames(nomissdf_pcos))]
-# for (i in 1:nrow(nomissdf_pcos)) {
-#   nomissdf_pcos$PCOS[i] <- ifelse(substring(row.names(nomissdf_pcos[i,]),1,1)=="P",1,0)
-# }
-# nomissdf_pcos$Group <- nomissdf_pcos$PCOS
 nomiss.plsda_pcos <- nomissdf_pcos
 nomiss.plsda_pcos$id <- row.names(nomiss.plsda_pcos)
 nomiss.plsda_pcos$id <- gsub("P", "", nomiss.plsda_pcos$id)
@@ -438,167 +164,14 @@ set.seed(34)  # for reproducible results for this code
 #pcos.perf.splsda = perf(splsda.pcos, validation = 'Mfold', folds = 3,
   #                      progressBar = FALSE, nrepeat = 10, dist = 'max.dist',auc=TRUE)
 
+# PCA
 
-# try sPLS-DA for PCOS vs. control in diet and fasting samples separately
-gooddata.pcos.diet <- gooddata.format[gooddata.format$Group==1,]
-for (i in 1:nrow(gooddata.pcos.diet)) {
-  gooddata.pcos.diet$PCOS[i] <- ifelse(substring(row.names(gooddata.pcos.diet[i,]),1,1)=="P",1,0)
-}
-gooddata.pcos.diet$Group <- gooddata.pcos.diet$PCOS
-nomiss.pcos.diet <- MissingValues(gooddata.pcos.diet,feature.cutoff = 0.95,sample.cutoff = 0.8,saveoutput = TRUE,
-                        outputname = "C:\\Temp\\newoutput_pcos_diet")
-nomiss.pcos.diet <- fread("C:\\Temp\\newoutput_pcos_diet_featuredata.csv",header=TRUE)
-nomiss.pcos.diet <- nomiss.pcos.diet[,-1]
-nomissdf_pcos_diet <- as.data.frame(nomiss.pcos.diet)
-for (i in 1:nrow(nomissdf_pcos_diet)) {
-  row.names(nomissdf_pcos_diet)[i] <- row.names(nomissdf_pcos_diet)[i]
-}
-nomiss.plsda_pcos_diet <- nomissdf_pcos_diet
-nomiss.plsda_pcos_diet$id <- row.names(nomiss.plsda_pcos_diet)
-nomiss.plsda_pcos_diet$id <- gsub("P", "", nomiss.plsda_pcos_diet$id)
-nomiss.plsda_pcos_diet$id <- gsub("C", "", nomiss.plsda_pcos_diet$id)
-nomiss.plsda_pcos_diet$id <- gsub("diet", "", nomiss.plsda_pcos_diet$id)
-nomiss.plsda_pcos_diet$id <- gsub("No-", "", nomiss.plsda_pcos_diet$id)
-nomiss.plsda_pcos_diet <- nomiss.plsda_pcos_diet[,c(1,6612,6613,2:6611)]
-splsda.pcos.diet = splsda(X = nomiss.plsda_pcos_diet[,c(4:6613)], Y=as.factor(nomiss.plsda_pcos_diet$PCOS),
-                     ncomp = 2, max.iter = 100000,near.zero.var=TRUE,tol=0.1)
-plotIndiv(splsda.pcos.diet, comp = c(1,2),
-          ind.names = FALSE,
-          ellipse = TRUE, legend = TRUE,title="")
-pcos.perf.splsda.diet = perf(splsda.pcos.diet, validation = 'Mfold', folds = 3,
-                      progressBar = FALSE, nrepeat = 10, dist = 'max.dist',auc=TRUE)
-pcos.perf.splsda.diet$error.rate
-pcos.perf.splsda.diet$auc
+# moderated t-tests
 
-# try sPLS-DA for PCOS vs. control in diet and fasting samples separately
-gooddata.pcos.nodiet <- gooddata.format[gooddata.format$Group==0,]
-for (i in 1:nrow(gooddata.pcos.nodiet)) {
-  gooddata.pcos.nodiet$PCOS[i] <- ifelse(substring(row.names(gooddata.pcos.nodiet[i,]),1,1)=="P",1,0)
-}
-gooddata.pcos.nodiet$Group <- gooddata.pcos.nodiet$PCOS
-nomiss.pcos.nodiet <- MissingValues(gooddata.pcos.nodiet,feature.cutoff = 0.95,sample.cutoff = 0.8,saveoutput = TRUE,
-                        outputname = "C:\\Temp\\newoutput_pcos_nodiet")
-nomiss.pcos.nodiet <- fread("C:\\Temp\\newoutput_pcos_nodiet_featuredata.csv",header=TRUE)
-nomiss.pcos.nodiet <- nomiss.pcos.nodiet[,-1]
-nomissdf_pcos_nodiet <- as.data.frame(nomiss.pcos.nodiet)
-for (i in 1:nrow(nomissdf_pcos_nodiet)) {
-  row.names(nomissdf_pcos_nodiet)[i] <- row.names(nomissdf_pcos_nodiet)[i]
-}
-nomiss.plsda_pcos_nodiet <- nomissdf_pcos_nodiet
-nomiss.plsda_pcos_nodiet$id <- row.names(nomiss.plsda_pcos_nodiet)
-nomiss.plsda_pcos_nodiet$id <- gsub("P", "", nomiss.plsda_pcos_nodiet$id)
-nomiss.plsda_pcos_nodiet$id <- gsub("C", "", nomiss.plsda_pcos_nodiet$id)
-nomiss.plsda_pcos_nodiet$id <- gsub("diet", "", nomiss.plsda_pcos_nodiet$id)
-nomiss.plsda_pcos_nodiet$id <- gsub("No-", "", nomiss.plsda_pcos_nodiet$id)
-nomiss.plsda_pcos_nodiet <- nomiss.plsda_pcos_nodiet[,c(1,6672,6673,2:6671)]
-splsda.pcos.nodiet = splsda(X = nomiss.plsda_pcos_nodiet[,c(4:6673)], Y=as.factor(nomiss.plsda_pcos_nodiet$PCOS),
-                     ncomp = 2, max.iter = 100000,near.zero.var=TRUE,tol=0.1)
-plotIndiv(splsda.pcos.nodiet, comp = c(1,2),
-          ind.names = FALSE,
-          ellipse = TRUE, legend = TRUE,title="")
-pcos.perf.splsda.nodiet = perf(splsda.pcos.nodiet, validation = 'Mfold', folds = 3,
-                      progressBar = FALSE, nrepeat = 10, dist = 'max.dist',auc=TRUE)
-pcos.perf.splsda.nodiet$error.rate
-pcos.perf.splsda.nodiet$auc
+# relative log abundance plot
 
-# can we do a PCA plot with 4 groups (i.e., cross-tab of PCO and diet)
-fourgroup.nm <- nomissdf_nounk.log.nm
-pcos <- grep("P",rownames(fourgroup.nm$groupdata))
-for (i in 1:nrow(fourgroup.nm$featuredata)){
-  fourgroup.nm$groupdata$PCOS <- ifelse(i %in% pcos,1,0)
-}
+# box plots
 
-fourgroup.nm$groupdata$PCOS[pcos] <- 1
-fourgroup.nm$groupdata$PCOS[fourgroup.nm$groupdata$PCOS != 1] <- 0
-fourgroup.nm$groupdata$fourgroup[fourgroup.nm$groupdata$PCOS==0 & fourgroup.nm$groupdata$Group==0] <- 1
-fourgroup.nm$groupdata$fourgroup[fourgroup.nm$groupdata$PCOS==0 & fourgroup.nm$groupdata$Group==1] <- 2
-fourgroup.nm$groupdata$fourgroup[fourgroup.nm$groupdata$PCOS==1 & fourgroup.nm$groupdata$Group==0] <- 3
-fourgroup.nm$groupdata$fourgroup[fourgroup.nm$groupdata$PCOS==1 & fourgroup.nm$groupdata$Group==1] <- 4
-#fourgroup <- fourgroup[,c(1:3,169,4:168)]
-#fourgroup$Group <- fourgroup$temp
-#fourgroup <- fourgroup[,-(2:4)]
-#fourgroup.log <- LogTransform(fourgroup)$output
-# HeatMap 
-HeatMap(featuredata = fourgroup.nm$featuredata,groupdata = fourgroup.nm$groupdata$fourgroup,interactiveplot = FALSE,
-        colramp=c(75,"magenta","green"),key=FALSE,dendrogram = "both",saveplot = TRUE,margins = c(10,22),cexRow = 0.2,plotname = "Four group heat map")
-
-# PCA plot
-#pcaplot4group <- PcaPlots(fourgroup.log,scale=TRUE, center=TRUE)
-pcaplots <- NormalizeMets::PcaPlots(featuredata=fourgroup.nm$featuredata,
-                                    groupdata=fourgroup.nm$groupdata$fourgroup,
-                                    scale=TRUE, center=TRUE,userinput = FALSE,saveplot = TRUE,savetype = "jpeg",
-                                    plotname="C:\\temp\\fourgroup",multiplot=TRUE,interactiveonly = FALSE,varplot = TRUE)
-dev.off()
-# this is really cool - the diet and nodiet cluster without respect to PCOS status
-
-# trying PCA plot with confidence ellipses
-res4group.pca <- PCA(fourgroup.nm$featuredata[,-1], graph = FALSE)
-png("C:\\temp\\indplot_4group.png")
-plot4group <- fviz_pca_ind(res4group.pca,
-             geom.ind = "point", # show points only (nbut not "text")
-             col.ind = as.factor(fourgroup.nm$groupdata$fourgroup), # color by groups
-             palette = c("#00AFBB", "#E7B800","#eb94e0","#8fa832"),
-             addEllipses = TRUE, # Concentration ellipse
-             title=""
-             )
-ggpubr::ggpar(plot4group,
-              title = "",
-              subtitle = "",
-              caption = "",
-              xlab = "PC1", ylab = "PC2",
-              ggtheme = theme_gray(), palette = "jco")
-plot4group + scale_color_manual(labels=c("Control, no diet","Control, diet","PCOS, no diet","PCOS, diet"),
-                                values= c("#00AFBB", "#E7B800","#eb94e0","#8fa832"),"Group") +
-        scale_fill_manual(guide = 'none', values=c("#00AFBB", "#E7B800","#eb94e0","#8fa832")) +
-        scale_shape_manual(guide = 'none', values=c(1,2,3,4))  +
-        labs(x="PC1",y="PC2")
-dev.off()
-
-
-# try separate PCAs of OGTT PCO vs not, can we tell PCO vs. not?
-# OGTT_PCA.log <- fourgroup.log[fourgroup.log$Group==1 | fourgroup.log$Group==3,]
-# ogtt.pca <- PCA(OGTT_PCA.log[,-1], graph = FALSE)
-# png("C:\\temp\\indplot_ogttpca.png")
-# plotogtt <- fviz_pca_ind(ogtt.pca,
-#                            geom.ind = "point", # show points only (nbut not "text")
-#                            col.ind = as.factor(OGTT_PCA.log$Group), # color by groups
-#                            palette = c("#00AFBB", "#E7B800"),
-#                            addEllipses = TRUE # Concentration ellipses
-# )
-# ggpubr::ggpar(plotogtt,
-#               title = "Principal Component Analysis",
-#               subtitle = "",
-#               caption = "",
-#               xlab = "PC1", ylab = "PC2",
-#               legend.position = "right",legend.title="Group",
-#               ggtheme = theme_gray(), palette = "jco")
-# dev.off()
-
-# try separate PCAs of clamp PCO vs not, can we tell PCO vs. not?
-# clamp_PCA.log <- fourgroup.log[fourgroup.log$Group==2 | fourgroup.log$Group==4,]
-# clamp.pca <- PCA(clamp_PCA.log[,-1], graph = FALSE)
-# png("C:\\temp\\indplot_clamppca.png")
-# plotclamp <- fviz_pca_ind(clamp.pca,
-#                          geom.ind = "point", # show points only (nbut not "text")
-#                          col.ind = as.factor(clamp_PCA.log$Group), # color by groups
-#                          palette = c("#00AFBB", "#E7B800"),
-#                          addEllipses = TRUE # Concentration ellipses
-# )
-# ggpubr::ggpar(plotclamp,
-#               title = "Principal Component Analysis",
-#               subtitle = "",
-#               caption = "",
-#               xlab = "PC1", ylab = "PC2",
-#               legend.position = "right",legend.title="Group",
-#               ggtheme = theme_gray(), palette = "jco")
-# dev.off()
-
-
-```
-
-# Table 1
-```{r, results='asis',tidy=TRUE, echo=FALSE}
-kable(tab1)
 ```
 
 # PCA plot by diet/no diet
@@ -606,57 +179,10 @@ kable(tab1)
 knitr::include_graphics("C:\\temp\\indplot_diet1.png")
 ```
 
-# PCA plot of dietxPCOS
-```{r, echo=FALSE}
-knitr::include_graphics("C:\\temp\\fourgroup_pca_score.jpeg")
-knitr::include_graphics("C:\\temp\\indplot_4group.png")
-```
-
-# Volcano plot
-```{r, echo=FALSE}
-suppressPackageStartupMessages(library(NormalizeMets))
-VolcanoPlot(coef=modfit_nona$coefficients[,1], pvals=modfit_nona$adj.p.value[,1],plimit=0.05,interactiveonly = FALSE,ylab="-log(q-value)",labelsig = FALSE)
-```
-
 # Relative log difference for compounds that were significantly different by moderated t-test
 ```{r, echo=F}
 p
 ```
-
-# Heat map
-```{r, echo=FALSE}
-suppressPackageStartupMessages(library(NormalizeMets))
-HeatMap(featuredata = nomissdf_nounk.log.nm$featuredata,groupdata = nomissdf_nounk.log.nm$groupdata$Group,interactiveplot = FALSE,
-        colramp=c(75,"magenta","green"),key=FALSE,dendrogram = "both",saveplot = TRUE,margins = c(10,22),cexRow = 0.2,plotname="Two group heatmap")
-```
-
-# Clustered image map using top 30 known metabolites
-
-This plot is similar to a heat map but based on sPLS analysis.
-
-```{r, echo=FALSE}
-knitr::include_graphics("C:\\temp\\cim.jpeg")
-```
-
-# Scatter plot representation of sPLS-DA, using all metabolites
-```{r, echo=FALSE}
-suppressPackageStartupMessages(library(mixOmics))
-plotIndiv(splsda.diet.unk, comp = c(1,2),
-          ind.names = FALSE, 
-          ellipse = TRUE, legend = TRUE, title="")
-```
-
-# ROC for diet vs. no diet classification, using all metabolites
-```{r, echo=FALSE}
-dietunk.auroc 
-```
-
-# Evaluation of sPLS-DA model
-
-5-fold cross-validation was used to examine the performance of the sPLS-DA model based on diet vs. no-diet, using all metabolites. 
-
- Overall Error rate component 1: `r dietunk.perf.splsda$error.rate$overall`
- AUC: `r auc_save_unk[1]`
 
 # Boxplots for compounds that were significantly different by moderated t-test
 ```{r plotnumeric, echo=FALSE}
@@ -674,30 +200,14 @@ plotIndiv(splsda.pcos, comp = c(1,2),
           ellipse = TRUE, legend = TRUE,title="")
 ```
 
+# ROC for PCOS vs. control classification, using all metabolites
+```{r, echo=FALSE}
+dietunk.auroc 
+```
+
 # Evaluation of sPLS-DA model for PCOS
 
 3-fold cross-validation was used to examine the performance of the sPLS-DA model based on PCOS vs. control, using all metabolites. For some reason, these will not print in the markdown file.
 
-# Scatter plot representation of sPLS-DA for PCOS, using all metabolites, clamp visit only
-```{r, echo=FALSE}
-plotIndiv(splsda.pcos.diet, comp = c(1,2),
-          ind.names = FALSE,
-          ellipse = TRUE, legend = TRUE,title="")
-```
-
-# Evaluation of sPLS-DA model for clamp visit only
-
-3-fold cross-validation was used to examine the performance of the sPLS-DA model based on PCOS vs. control, using all metabolites, clamp visit samples only. Again, these will not print for some reason.
-
-# Scatter plot representation of sPLS-DA for PCOS, using all metabolites, fasting visit only
-```{r, echo=FALSE}
-plotIndiv(splsda.pcos.nodiet, comp = c(1,2),
-          ind.names = FALSE,
-          ellipse = TRUE, legend = TRUE,title="")
-```
-
-# Evaluation of sPLS-DA model for fasting visit only
-
-3-fold cross-validation was used to examine the performance of the sPLS-DA model based on PCOS vs. control, using all metabolites, fasting visit samples only. Again, these will not print for some reason.
 
 

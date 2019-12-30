@@ -10,6 +10,7 @@ editor_options:
 ```{r setup, include=FALSE}
 library(knitr)
 
+
 knitr::opts_chunk$set(echo = FALSE,cache = FALSE)
 
 #source("C:\\Users\\pylell\\Documents\\GitHub\\Green-diet-and-exercise-metabolomics\\analysis_nounk_nomiss.r")
@@ -35,6 +36,7 @@ library(tableone)
 library(gdata)
 library(forcats)
 library(limma)
+library(MissMech)
 
 # read and transpose data
 #mydata <- read_excel(path="H:\\Endocrinology\\Green\\Metabolomics papers\\Diet and exercise\\Data\\raw data for metaboanalyst no null.xlsx",sheet=1 )
@@ -75,6 +77,13 @@ alldata$id <- gsub("Control6164-", "", alldata$id)
 alldata$uniqueid <- paste(substr(alldata$longid,1,1),alldata$Batch,alldata$id,sep="")
 row.names(alldata) <- alldata$uniqueid
 
+# convert to numeric
+num <- alldata[ ,!(colnames(alldata) %in% c("Batch","id","longid","uniqueid"))]
+fwrite(num,"C:\\Temp\\temp.csv")
+newnum <- fread("C:\\Temp\\temp.csv",colClasses = "numeric")
+alldata <- alldata[ ,(colnames(alldata) %in% c("Batch","id","uniqueid"))]
+alldata <- cbind(alldata,newnum)
+
 # divide data into diet and nodiet
 diet <- alldata[alldata$Batch=="diet",]
 nodiet <- alldata[alldata$Batch=="No-diet",]
@@ -93,28 +102,32 @@ countnomiss(nodiet)
 hist(sapply(diet, function(x) sum(is.na(x))))
 hist(sapply(nodiet, function(x) sum(is.na(x))))
 
-# check how  many compounds are known
-check_knowns <- alldata[, -grep("UNK",colnames(alldata))]
+# remove variables with <80% observed data (5 observed values)
+diet80 <- diet[, -which(colMeans(is.na(diet)) > 0.8)]
+alldata80 <- alldata[, -which(colMeans(is.na(alldata)) > 0.8)]
 
-# convert to numeric
-num <- alldata[ ,!(colnames(alldata) %in% c("Batch","id","longid","uniqueid"))]
-fwrite(num,"C:\\Temp\\temp.csv")
-newnum <- fread("C:\\Temp\\temp.csv",colClasses = "numeric")
-alldata <- alldata[ ,(colnames(alldata) %in% c("Batch","id","uniqueid"))]
-alldata <- cbind(alldata,newnum)
+# test missing data mechanism, but this doesn't work
+#out <- TestMCARNormality(alldata50[,4:5640],method="Nonparametric",del.lesscases = 1,
+#                         imputation.method = "Dist.Free")
+#write.csv(alldata80,"C:\\temp\\alldata80.csv")
+
+# summarize mean intensity of each variable and number missing values
+hold <- sapply(alldata80[,4:6587], function(x) sum(is.na(x)))
+meanx <- sapply(alldata80[,4:6587], function(x) mean(x,na.rm=TRUE))
+cdata <- cbind(hold,meanx)
+a <- cor.test(cdata[,1],cdata[,2])
+
+# summarize mean intensity of each variable and number missing values
+hold <- sapply(diet80[,4:6500], function(x) sum(is.na(x)))
+meanx <- sapply(diet80[,4:6500], function(x) mean(x,na.rm=TRUE))
+cdata <- cbind(hold,meanx)
+b <- cor.test(cdata[,1],cdata[,2])
 
 # find variables that have too few nonmissing observations
-check <- as.data.frame(apply(alldata,2,function(x) length(which(!is.na(x)))))
-for (i in 1:nrow(check)) {
-  check$id[i] <- row.names(check)[i]
-}
-bad <- as.data.frame(check[check[,1]<3,])
-gooddata <- alldata[ ,!(colnames(alldata) %in% bad$id)]
+gooddata <- diet80
 gooddata$Group[gooddata$Batch=="diet"] <- 1
 gooddata$Group[gooddata$Batch=="No-diet"] <- 0
-# also get rid of 3 participants who only have one timepoint
-gooddata <- gooddata[gooddata$id !='23' & gooddata$id !="28" & 
-                       gooddata$id !="42",]
+
 # sort so that participants are in the same order within condition
 gooddata <- gooddata[with(gooddata, order(Group, id)),  ]
 
@@ -177,21 +190,6 @@ modFit<-LinearModelFit(featuredata=data.matrix(dietmat_nounk$featuredata-nodietm
                        factormat=matrix(1,nrow=nrow(dietmat_nounk$featuredata)),
                        outputname = "H:\\Endocrinology\\Green\\Metabolomics papers\\Diet and exercise\\Data\\modFit",
                        saveoutput = TRUE)
-# TwoGroupPlots(nomissdf_nounk.log[,-1],
-#               tstats = modFit$t[,1],
-#               foldchanges = modFit$coef[,1],
-#               pvalues = modFit$p.val[,1],
-#               padjmethod = "BH",
-#               fcutoff = log(2),
-#               pcutoff = 0.05)
-# trying TwoGroupPlot with anything significantly different, regardless of fold change
-# TwoGroupPlots(nomissdf_nounk.log[,-1],
-#               tstats = modFit$t[,1],
-#               foldchanges = modFit$coef[,1],
-#               pvalues = modFit$p.val[,1],
-#               padjmethod = "BH",
-#               fcutoff = log(1),
-#               pcutoff = 0.05)
 
 # BoxPlots for significant compounds
 sig <- read.csv(file="H:\\Endocrinology\\Green\\Metabolomics papers\\Diet and exercise\\Data\\modFit.csv")
@@ -286,17 +284,6 @@ plot1 + scale_color_manual(labels=c("No Diet","Diet"),values= c("#00AFBB", "#E7B
         scale_shape_manual(guide = 'none', values=c(1,2))  +
         labs(x="PC1",y="PC2")
 dev.off()
-
-
-# RLA plot
-# RlaPlots(featuredata=nomissdf_nounk.log.nm$featuredata,groupdata=nomissdf_nounk.log.nm$groupdata, type="ag",
-#          saveinteractiveplot = T,interactiveonly = T)
-# RlaPlots(featuredata=nomissdf_nounk.log.nm$featuredata,groupdata=nomissdf_nounk.log.nm$groupdata, type="ag",
-#          saveplot = TRUE,plotname = "rla1",savetype = "jpeg")
-# RlaPlots(featuredata=nomissdf_nounk.log.nm$featuredata,groupdata=nomissdf_nounk.log.nm$groupdata, type="wg",
-#          saveplot = TRUE,plotname = "C:\\Temp\\rla2",savetype = "jpeg")
-# RlaPlots(featuredata=nomissdf_nounk.log.nm$featuredata,groupdata=nomissdf_nounk.log.nm$groupdata, type="wg",
-#          saveinteractiveplot = T,saveplot = TRUE,plotname = "C:\\Temp\\rla2",savetype = "jpeg")
 
 # create dataset for PLS-DA
 # create variable for PCO status

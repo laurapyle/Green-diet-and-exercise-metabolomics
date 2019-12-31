@@ -87,6 +87,12 @@ alldata <- cbind(alldata,newnum)
 
 # keep only diet condition since that has less missing data
 gooddata <- alldata[alldata$Batch=="diet",]
+#check <- as.data.frame(apply(gooddata,2,function(x) length(which(!is.na(x)))))
+#for (i in 1:nrow(check)) {
+#  check$id[i] <- row.names(check)[i]
+#}
+#bad <- as.data.frame(check[check[,1]<3,])
+#gooddata <- alldata[ ,!(colnames(gooddata) %in% bad$id)]
 for (i in 1:nrow(gooddata)) {
   gooddata$PCOS[i] <- ifelse(substring(row.names(gooddata[i,]),1,1)=="P",1,0)
 }
@@ -101,40 +107,40 @@ final$metdata <- as.data.frame(colnames(final$featuredata))
 colnames(final$metdata)="Metabolite"
 
 # now impute by PCOS
-final_nomissknn <- MissingValues(featuredata = final$featuredata,sampledata = final$sampledata,
-                                 metabolitedata=final$metdata,feature.cutoff=0.8,method="knn",
-                                 featuremax.knn = 0.99,seed=3654, saveoutput = TRUE,
-                                 outputname = "C:\\Temp\\final_nomissknn")
+final_nomisshalfmin <- MissingValues(featuredata = final$featuredata,sampledata = final$sampledata,
+                                 metabolitedata=final$metdata,feature.cutoff=0.8,method="replace",
+                                 seed=3654, saveoutput = TRUE,
+                                 outputname = "C:\\Temp\\final_nomisshalfmin")
 # now we should have an object with featuredata, sampledata, and groupdata
 
 # make a version with only knowns
-final_nomissknn_nounk <- NULL
-final_nomissknn_nounk$featuredata <- final_nomissknn$featuredata[, -grep("UNK",colnames(final_nomissknn$featuredata))]
-final_nomissknn_nounk$sampledata <- final_nomissknn$sampledata
-final_nomissknn_nounk$metabolitedata <- final_nomissknn$metabolitedata[-grep("UNK",final_nomissknn$metabolitedata)]
+final_nomisshalfmin_nounk <- NULL
+final_nomisshalfmin_nounk$featuredata <- final_nomisshalfmin$featuredata[, -grep("UNK",colnames(final_nomisshalfmin$featuredata))]
+final_nomisshalfmin_nounk$sampledata <- final_nomisshalfmin$sampledata
+final_nomisshalfmin_nounk$metabolitedata <- final_nomisshalfmin$metabolitedata[-grep("UNK",final_nomisshalfmin$metabolitedata)]
 
 # log transform both the entire dataset and the known dataset
-final_nomissknn.log <- NULL
-temp <- final_nomissknn$featuredata
-final_nomissknn.log <- LogTransform(temp)
-final_nomissknn.log$sampledata <- final_nomissknn$sampledata
-final_nomissknn.log$metabolitedata <- final_nomissknn$metabolitedata
-final_nomissknn_nounk.log <- NULL
-temp <- final_nomissknn_nounk$featuredata
-final_nomissknn_nounk.log <- LogTransform(temp)
-final_nomissknn_nounk.log$sampledata <- final_nomissknn_nounk$sampledata
-final_nomissknn_nounk.log$metabolitedata <- final_nomissknn_nounk$metabolitedata
+final_nomisshalfmin.log <- NULL
+temp <- final_nomisshalfmin$featuredata
+final_nomisshalfmin.log <- LogTransform(temp)
+final_nomisshalfmin.log$sampledata <- final_nomisshalfmin$sampledata
+final_nomisshalfmin.log$metabolitedata <- final_nomisshalfmin$metabolitedata
+final_nomisshalfmin_nounk.log <- NULL
+temp <- final_nomisshalfmin_nounk$featuredata
+final_nomisshalfmin_nounk.log <- LogTransform(temp)
+final_nomisshalfmin_nounk.log$sampledata <- final_nomisshalfmin_nounk$sampledata
+final_nomisshalfmin_nounk.log$metabolitedata <- final_nomisshalfmin_nounk$metabolitedata
 
 #Linear model fit with moderated statistics
-modFit<-LinearModelFit(featuredata=final_nomissknn_nounk.log$featuredata,
+modFit<-LinearModelFit(featuredata=final_nomisshalfmin_nounk.log$featuredata,
                        ruv2=FALSE,
                        moderated=TRUE,
-                       factormat=final_nomissknn_nounk.log$sampledata[1],
-                       outputname = "H:\\Endocrinology\\Green\\Metabolomics papers\\Diet and exercise\\Data\\modFit_knn",
+                       factormat=final_nomisshalfmin_nounk.log$sampledata[1],
+                       outputname = "H:\\Endocrinology\\Green\\Metabolomics papers\\Diet and exercise\\Data\\modFit_halfmin",
                        saveoutput = TRUE)
 
 # BoxPlots for significant compounds
-sig <- read.csv(file="H:\\Endocrinology\\Green\\Metabolomics papers\\Diet and exercise\\Data\\modFit_knn.csv")
+sig <- read.csv(file="H:\\Endocrinology\\Green\\Metabolomics papers\\Diet and exercise\\Data\\modFit_halfmin.csv")
 sig <- sig[sig$Adjusted.t.p.value.Group<0.05,]
 keep <- as.matrix(sig$X)
 
@@ -148,11 +154,11 @@ p <- ggplot(data=sig_ord, aes(x=X, y=coeff.Group,ymin=Lower.CI.Group,ymax=Upper.
   theme(axis.text.x = element_text(size=8), text=element_text(size=8))
 
 # trying PCA plot with confidence ellipses
-res.pca <- PCA(final_nomissknn$featuredata, graph = FALSE)
-png("C:\\temp\\pca_knn.png")
+res.pca <- PCA(final_nomisshalfmin$featuredata, graph = FALSE)
+png("C:\\temp\\pca_halfmin.png")
 plot1 <- fviz_pca_ind(res.pca,
              geom.ind = "point", # show points only (nbut not "text")
-             col.ind = as.factor(final_nomissknn$sampledata$Group), # color by groups
+             col.ind = as.factor(final_nomisshalfmin$sampledata$Group), # color by groups
              palette = c("#00AFBB", "#E7B800"),
              addEllipses = TRUE, # Concentration ellipse
              title=""
@@ -170,7 +176,7 @@ plot1 + scale_color_manual(labels=c("Control","PCOS"),values= c("#00AFBB", "#E7B
 dev.off()
 
 # PLS-DA
-nomissdf_pcos <- fread("C:\\Temp\\final_nomissknn_featuredata.csv",header=TRUE)
+nomissdf_pcos <- fread("C:\\Temp\\final_nomisshalfmin_featuredata.csv",header=TRUE)
 nomissdf_pcos <- nomissdf_pcos[,-1]
 nomissdf_pcos <- as.data.frame(nomissdf_pcos)
 for (i in 1:nrow(nomissdf_pcos)) {
@@ -179,8 +185,6 @@ for (i in 1:nrow(nomissdf_pcos)) {
 for (i in 1:nrow(nomissdf_pcos)) {
  nomissdf_pcos$PCOS[i] <- ifelse(substring(row.names(nomissdf_pcos[i,]),1,1)=="P",1,0)
 }
-nomissdf_pcos <- cbind(nomissdf_pcos[,6498],nomissdf_pcos[1:6497])
-colnames(nomissdf_pcos) <- c("PCOS",colnames(nomissdf_pcos[,2:6498]))
 nomiss.plsda_pcos <- nomissdf_pcos
 nomiss.plsda_pcos$id <- row.names(nomiss.plsda_pcos)
 nomiss.plsda_pcos$id <- gsub("P", "", nomiss.plsda_pcos$id)
@@ -206,7 +210,7 @@ There were `r nrow(sig)` variables significant by moderated t-test.
 
 # PCA plot by PCOS status
 ```{r, echo=FALSE}
-knitr::include_graphics("C:\\temp\\pca_knn.png")
+knitr::include_graphics("C:\\temp\\pca_halfmin.png")
 ```
 
 # Relative log difference for compounds that were significantly different by moderated t-test

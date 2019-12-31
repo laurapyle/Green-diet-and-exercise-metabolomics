@@ -75,5 +75,10 @@ gooddata <- alldata[alldata$Batch=="diet",]
 for (i in 1:nrow(gooddata)) {
   gooddata$PCOS[i] <- ifelse(substring(row.names(gooddata[i,]),1,1)=="P",1,0)
 }
-gooddata$Group <- gooddata$PCOS
+gooddata$group <- gooddata$PCOS
 gooddata <- cbind(gooddata[,1:3],gooddata[,6748:6749],gooddata[,4:6747])
+gooddata$Batch <- NULL
+gooddata$id <- NULL
+gooddata$PCOS <- NULL
+
+write.csv(gooddata,"H:\\Endocrinology\\Green\\Metabolomics papers\\Diet and exercise\\Data\\for_metimp.csv")

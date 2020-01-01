@@ -1,0 +1,264 @@
+---
+title: "Diet and activity metabolomics"
+author: "Laura Pyle"
+date: "`r format(Sys.time(), '%d %B %Y')`"
+output: word_document
+editor_options: 
+  chunk_output_type: console
+---
+
+```{r setup, include=FALSE}
+library(knitr)
+
+knitr::opts_chunk$set(echo = FALSE,cache = FALSE)
+
+#source("C:\\Users\\pylell\\Documents\\GitHub\\Green-diet-and-exercise-metabolomics\\analysis_nounk_nomiss.r")
+
+setwd("H:\\Endocrinology\\Green\\Metabolomics papers\\Diet and exercise\\Data\\")
+
+library(readxl)
+# load NormalizeMets first, metabolomics second
+library(NormalizeMets)
+#library(metabolomics)
+library(pca3d)
+library(pcaMethods)
+library(ggplot2)
+library(rgl)
+library(stringr)
+library(data.table)
+library(dplyr)
+library(mixOmics)
+library(Hmisc)
+library("FactoMineR")
+library("factoextra")
+library(tableone)
+library(gdata)
+library(forcats)
+library(limma)
+library(imputeLCMD)
+
+# read and transpose data
+#mydata <- read_excel(path="H:\\Endocrinology\\Green\\Metabolomics papers\\Diet and exercise\\Data\\raw data for metaboanalyst no null.xlsx",sheet=1 )
+# read in new dataset from Haseeb with identified unknowns
+mydata <- read_excel(path="H:\\Endocrinology\\Green\\Metabolomics papers\\Diet and exercise\\Data\\updated data with identified unknowns 1.2.19 no null.xlsx",sheet=1 )
+mydata <- as.data.frame(mydata)
+mydata <- mydata[!is.na(mydata$Name),]
+alldata <- as.data.frame(t(mydata[,-1]))
+colnames(alldata) <- mydata$Name
+colnames(alldata) <- str_remove_all(colnames(alldata),fixed(" (M-H)-"))
+colnames(alldata) <- str_remove(colnames(alldata),fixed(" (M+Cl)-"))
+colnames(alldata) <- str_remove(colnames(alldata),fixed(" (M-H)-[-H2O]"))
+colnames(alldata) <- str_remove(colnames(alldata),fixed(" (M-H)+[-H2O]"))
+colnames(alldata) <- str_remove(colnames(alldata),fixed(" (M+Cl)+[-H2O]"))
+colnames(alldata) <- str_remove(colnames(alldata),fixed(" (M+Cl)-"))
+colnames(alldata) <- str_remove(colnames(alldata),fixed(" (M+H)-"))
+colnames(alldata) <- str_remove(colnames(alldata),fixed(" [-H2O]"))
+colnames(alldata) <- str_remove(colnames(alldata),fixed("[-H2O]"))
+colnames(alldata) <- str_remove(colnames(alldata),fixed(" (2M-H)+"))
+colnames(alldata) <- str_remove(colnames(alldata),fixed(" (M+H)+"))
+colnames(alldata) <- str_remove(colnames(alldata),fixed(" (M+K)+"))
+colnames(alldata) <- str_remove(colnames(alldata),fixed(" (M+Na)+"))
+
+source("C:\\Users\\pylell\\Documents\\GitHub\\General-code\\temp_table1.r")
+source("C:\\Users\\pylell\\Documents\\GitHub\\General-code\\foldchange.r")
+source("C:\\Users\\pylell\\Documents\\GitHub\\General-code\\editcolnames.r")
+
+# create variable for ID
+for (i in 1:nrow(alldata)) {
+  alldata$longid[i] <- row.names(alldata)[i]
+}
+alldata$longid <- gsub("\\s", "", alldata$longid) 
+alldata$id <- gsub("OGTT0", "", alldata$longid) 
+alldata$id <- gsub("BCTP0", "", alldata$id) 
+alldata$id <- gsub("PCOS6164-", "", alldata$id)
+alldata$id <- gsub("PCOSHS6164-", "", alldata$id)
+alldata$id <- gsub("Control6164-", "", alldata$id)
+alldata$uniqueid <- paste(substr(alldata$longid,1,1),alldata$Batch,alldata$id,sep="")
+row.names(alldata) <- alldata$uniqueid
+
+# check how  many compounds are known
+check_knowns <- alldata[, -grep("UNK",colnames(alldata))]
+
+# convert to numeric
+num <- alldata[ ,!(colnames(alldata) %in% c("Batch","id","longid","uniqueid"))]
+fwrite(num,"C:\\Temp\\temp.csv")
+newnum <- fread("C:\\Temp\\temp.csv",colClasses = "numeric")
+alldata <- alldata[ ,(colnames(alldata) %in% c("Batch","id","uniqueid"))]
+alldata <- cbind(alldata,newnum)
+
+# keep only diet condition since that has less missing data
+gooddata <- alldata[alldata$Batch=="No-diet",]
+check <- as.data.frame(apply(gooddata,2,function(x) length(which(!is.na(x)))))
+for (i in 1:nrow(check)) {
+  check$id[i] <- row.names(check)[i]
+}
+bad <- as.data.frame(check[check[,1]<9,])
+gooddata <- gooddata[ ,!(colnames(gooddata) %in% bad$id)]
+for (i in 1:nrow(gooddata)) {
+  gooddata$PCOS[i] <- ifelse(substring(row.names(gooddata[i,]),1,1)=="P",1,0)
+}
+gooddata$Group <- gooddata$PCOS
+gooddata <- cbind(gooddata[,1:3],gooddata[,6383:6384],gooddata[,4:6382])
+final <- NULL
+final$featuredata <- gooddata[,-c(1:5)]
+final$sampledata <- as.data.frame(gooddata[,5])
+colnames(final$sampledata) <- "Group"
+rownames(final$sampledata) = rownames(final$featuredata)
+final$metdata <- as.data.frame(colnames(final$featuredata))
+colnames(final$metdata)="Metabolite"
+
+# now impute by PCOS
+# use MissingValues with no imputation just to get rid of variables with too little data
+final_nomissmean <- MissingValues(featuredata = final$featuredata,sampledata = final$sampledata,
+                                 metabolitedata=final$metdata,feature.cutoff=0.8,method="none",
+                                 seed=3654, saveoutput = TRUE,
+                                 outputname = "C:\\Temp\\final_nomissmean_nodiet")
+# now we should have an object with featuredata, sampledata, and groupdata
+# impute with feature mean
+new_matrix <- NULL
+holdnames <- colnames(final_nomissmean$featuredata)
+matrix_mean <- colMeans(final_nomissmean$featuredata, na.rm = TRUE)
+for (i in 1:ncol(final_nomissmean$featuredata)) {
+  temp_matrix <- as.matrix(final_nomissmean$featuredata)
+  temp <- temp_matrix[,i]
+  temp[which(is.na(temp))] <- matrix_mean[i]
+  #for (j in 1:length(temp)) {
+  #  temp[j] <- ifelse(is.na(temp[j]),matrix_mean[i],temp[j])
+  #}
+  #temp <- as.data.frame(temp)
+  new_matrix <- cbind(new_matrix,temp)
+}
+final_nomissmean$featuredata <- new_matrix
+colnames(final_nomissmean$featuredata) <- holdnames
+# write imputed dataset for reading into PLS-DA
+write.csv(final_nomissmean$featuredata,"H:\\Endocrinology\\Green\\Metabolomics papers\\Diet and exercise\\Data\\mean_imputed_for_plsda_nodiet.csv")
+
+# make a version with only knowns
+final_nomissmean_nounk <- NULL
+final_nomissmean_nounk$featuredata <- final_nomissmean$featuredata[, -grep("UNK",colnames(final_nomissmean$featuredata))]
+final_nomissmean_nounk$sampledata <- final_nomissmean$sampledata
+final_nomissmean_nounk$metabolitedata <- final_nomissmean$metabolitedata[-grep("UNK",final_nomissmean$metabolitedata)]
+
+# log transform both the entire dataset and the known dataset
+final_nomissmean.log <- NULL
+temp <- final_nomissmean$featuredata
+final_nomissmean.log <- LogTransform(temp)
+final_nomissmean.log$sampledata <- final_nomissmean$sampledata
+final_nomissmean.log$metabolitedata <- final_nomissmean$metabolitedata
+final_nomissmean_nounk.log <- NULL
+temp <- final_nomissmean_nounk$featuredata
+final_nomissmean_nounk.log <- LogTransform(temp)
+final_nomissmean_nounk.log$sampledata <- final_nomissmean_nounk$sampledata
+final_nomissmean_nounk.log$metabolitedata <- final_nomissmean_nounk$metabolitedata
+
+#Linear model fit with moderated statistics
+modFit<-LinearModelFit(featuredata=final_nomissmean_nounk.log$featuredata,
+                       ruv2=FALSE,
+                       moderated=TRUE,
+                       factormat=final_nomissmean_nounk.log$sampledata[1],
+                       outputname = "H:\\Endocrinology\\Green\\Metabolomics papers\\Diet and exercise\\Data\\modFit_mean_nodiet",
+                       saveoutput = TRUE)
+
+# BoxPlots for significant compounds
+sig <- read.csv(file="H:\\Endocrinology\\Green\\Metabolomics papers\\Diet and exercise\\Data\\modFit_mean_nodiet.csv")
+sig <- sig[sig$Adjusted.t.p.value.Group<0.05,]
+keep <- as.matrix(sig$X)
+
+# can we create a relative log abundance plot for top 20 compounds by moderated t-test
+sig_ord  <- sig
+sig_ord <- sig_ord %>% arrange(coeff.Group)
+sig_ord$X <- with(sig_ord, reorder(X,coeff.Group))
+p <- ggplot(data=sig_ord, aes(x=X, y=coeff.Group,ymin=Lower.CI.Group,ymax=Upper.CI.Group)) + 
+  geom_pointrange() + geom_hline(yintercept=0, lty=2) +
+  coord_flip() + xlab("") + ylab("Mean Log Difference (P-C)") +
+  theme(axis.text.x = element_text(size=8), text=element_text(size=8))
+
+# trying PCA plot with confidence ellipses
+res.pca <- PCA(final_nomissmean$featuredata, graph = FALSE)
+png("C:\\temp\\pca_mean_nodiet.png")
+plot1 <- fviz_pca_ind(res.pca,
+             geom.ind = "point", # show points only (nbut not "text")
+             col.ind = as.factor(final_nomissmean$sampledata$Group), # color by groups
+             palette = c("#00AFBB", "#E7B800"),
+             addEllipses = TRUE, # Concentration ellipse
+             title=""
+             )
+ggpubr::ggpar(plot1,
+              title = "",
+              subtitle = "",
+              caption = "",
+              xlab = "PC1", ylab = "PC2",
+              ggtheme = theme_gray(), palette = "jco")
+plot1 + scale_color_manual(labels=c("Control","PCOS"),values= c("#00AFBB", "#E7B800"),"Group") +
+        scale_fill_manual(guide = 'none', values=c("#00AFBB", "#E7B800")) +
+        scale_shape_manual(guide = 'none', values=c(1,2))  +
+        labs(x="PC1",y="PC2")
+dev.off()
+
+# PLS-DA
+#nomissdf_pcos <- fread("C:\\Temp\\final_nomissmean_featuredata.csv",header=TRUE)
+nomissdf_pcos <- read.csv("H:\\Endocrinology\\Green\\Metabolomics papers\\Diet and exercise\\Data\\mean_imputed_for_plsda_nodiet.csv")
+nomissdf_pcos <- nomissdf_pcos[,-1]
+nomissdf_pcos <- as.data.frame(nomissdf_pcos)
+for (i in 1:nrow(nomissdf_pcos)) {
+  row.names(nomissdf_pcos)[i] <- row.names(gooddata)[i]
+}
+for (i in 1:nrow(nomissdf_pcos)) {
+ nomissdf_pcos$PCOS[i] <- ifelse(substring(row.names(nomissdf_pcos[i,]),1,1)=="P",1,0)
+}
+nomissdf_pcos <- cbind(nomissdf_pcos[,6380],nomissdf_pcos[,1:6379])
+colnames(nomissdf_pcos) <- c("PCOS",colnames(nomissdf_pcos[,2:6380]))
+nomiss.plsda_pcos <- nomissdf_pcos
+nomiss.plsda_pcos$id <- row.names(nomiss.plsda_pcos)
+nomiss.plsda_pcos$id <- gsub("P", "", nomiss.plsda_pcos$id)
+nomiss.plsda_pcos$id <- gsub("C", "", nomiss.plsda_pcos$id)
+nomiss.plsda_pcos$id <- gsub("diet", "", nomiss.plsda_pcos$id)
+nomiss.plsda_pcos$id <- gsub("No-", "", nomiss.plsda_pcos$id)
+nomiss.plsda_pcos <- nomiss.plsda_pcos[,c(1,6381,2:6380)]
+splsda.pcos = splsda(X = nomiss.plsda_pcos[,c(3:6381)], Y=as.factor(nomiss.plsda_pcos$PCOS),
+                     ncomp = 2, max.iter = 100000,near.zero.var=TRUE,tol=0.1)
+plotIndiv(splsda.pcos, comp = c(1,2),
+          ind.names = FALSE,
+          ellipse = TRUE, legend = TRUE)
+set.seed(34)  # for reproducible results for this code
+pcos.perf.splsda = perf(splsda.pcos, validation = 'Mfold', folds = 3,
+                      progressBar = FALSE, nrepeat = 10, dist = 'max.dist',auc=TRUE)
+pcos.perf.splsda$error.rate
+auc_save <- pcos.perf.splsda$auc
+
+
+```
+
+There were `r nrow(sig)` variables significant by moderated t-test.
+
+# PCA plot by PCOS status
+```{r, echo=FALSE}
+knitr::include_graphics("C:\\temp\\pca_mean_nodiet.png")
+```
+
+# Relative log difference for compounds that were significantly different by moderated t-test
+```{r, echo=F}
+p
+```
+
+# Scatter plot representation of sPLS-DA, using all metabolites
+```{r, echo=FALSE}
+suppressPackageStartupMessages(library(mixOmics))
+plotIndiv(splsda.pcos, comp = c(1,2),
+          ind.names = FALSE,
+          ellipse = TRUE, legend = TRUE)
+```
+
+# Evaluation of sPLS-DA model
+
+3-fold cross-validation was used to examine the performance of the sPLS-DA model based on PCOS status, using all metabolites. 
+
+Overall Error rate component 1: `r pcos.perf.splsda$error.rate$overall[1]`
+Overall Error rate component 2: `r pcos.perf.splsda$error.rate$overall[2]`
+AUC component 1: `r auc_save$comp1[1]`
+AUC component 2: `r auc_save$comp2[1]`
+
+
+
+
+

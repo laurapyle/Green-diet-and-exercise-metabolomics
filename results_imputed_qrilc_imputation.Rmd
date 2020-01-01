@@ -35,6 +35,7 @@ library(tableone)
 library(gdata)
 library(forcats)
 library(limma)
+library(imputeLCMD)
 
 # read and transpose data
 #mydata <- read_excel(path="H:\\Endocrinology\\Green\\Metabolomics papers\\Diet and exercise\\Data\\raw data for metaboanalyst no null.xlsx",sheet=1 )
@@ -108,58 +109,46 @@ colnames(final$metdata)="Metabolite"
 
 # now impute by PCOS
 # use MissingValues with no imputation just to get rid of variables with too little data
-final_nomissmean <- MissingValues(featuredata = final$featuredata,sampledata = final$sampledata,
+final_nomissqrilc <- MissingValues(featuredata = final$featuredata,sampledata = final$sampledata,
                                  metabolitedata=final$metdata,feature.cutoff=0.8,method="none",
                                  seed=3654, saveoutput = TRUE,
-                                 outputname = "C:\\Temp\\final_nomissmean")
+                                 outputname = "C:\\Temp\\final_nomissqrilc")
 # now we should have an object with featuredata, sampledata, and groupdata
-# impute with feature mean
-new_matrix <- NULL
-holdnames <- colnames(final_nomissmean$featuredata)
-matrix_mean <- colMeans(final_nomissmean$featuredata, na.rm = TRUE)
-for (i in 1:ncol(final_nomissmean$featuredata)) {
-  temp_matrix <- as.matrix(final_nomissmean$featuredata)
-  temp <- temp_matrix[,i]
-  temp[which(is.na(temp))] <- matrix_mean[i]
-  #for (j in 1:length(temp)) {
-  #  temp[j] <- ifelse(is.na(temp[j]),matrix_mean[i],temp[j])
-  #}
-  #temp <- as.data.frame(temp)
-  new_matrix <- cbind(new_matrix,temp)
-}
-final_nomissmean$featuredata <- new_matrix
-colnames(final_nomissmean$featuredata) <- holdnames
+# impute with qrilc
+temp <- impute.QRILC(final_nomissqrilc$featuredata)
+final_nomissqrilc$featuredata <- temp[[1]]
+
 # write imputed dataset for reading into PLS-DA
-write.csv(final_nomissmean$featuredata,"H:\\Endocrinology\\Green\\Metabolomics papers\\Diet and exercise\\Data\\mean_imputed_for_plsda.csv")
+write.csv(final_nomissqrilc$featuredata,"H:\\Endocrinology\\Green\\Metabolomics papers\\Diet and exercise\\Data\\qrilc_imputed_for_plsda.csv")
 
 # make a version with only knowns
-final_nomissmean_nounk <- NULL
-final_nomissmean_nounk$featuredata <- final_nomissmean$featuredata[, -grep("UNK",colnames(final_nomissmean$featuredata))]
-final_nomissmean_nounk$sampledata <- final_nomissmean$sampledata
-final_nomissmean_nounk$metabolitedata <- final_nomissmean$metabolitedata[-grep("UNK",final_nomissmean$metabolitedata)]
+final_nomissqrilc_nounk <- NULL
+final_nomissqrilc_nounk$featuredata <- final_nomissqrilc$featuredata[, -grep("UNK",colnames(final_nomissqrilc$featuredata))]
+final_nomissqrilc_nounk$sampledata <- final_nomissqrilc$sampledata
+final_nomissqrilc_nounk$metabolitedata <- final_nomissqrilc$metabolitedata[-grep("UNK",final_nomissqrilc$metabolitedata)]
 
 # log transform both the entire dataset and the known dataset
-final_nomissmean.log <- NULL
-temp <- final_nomissmean$featuredata
-final_nomissmean.log <- LogTransform(temp)
-final_nomissmean.log$sampledata <- final_nomissmean$sampledata
-final_nomissmean.log$metabolitedata <- final_nomissmean$metabolitedata
-final_nomissmean_nounk.log <- NULL
-temp <- final_nomissmean_nounk$featuredata
-final_nomissmean_nounk.log <- LogTransform(temp)
-final_nomissmean_nounk.log$sampledata <- final_nomissmean_nounk$sampledata
-final_nomissmean_nounk.log$metabolitedata <- final_nomissmean_nounk$metabolitedata
+final_nomissqrilc.log <- NULL
+temp <- final_nomissqrilc$featuredata
+final_nomissqrilc.log <- LogTransform(temp)
+final_nomissqrilc.log$sampledata <- final_nomissqrilc$sampledata
+final_nomissqrilc.log$metabolitedata <- final_nomissqrilc$metabolitedata
+final_nomissqrilc_nounk.log <- NULL
+temp <- final_nomissqrilc_nounk$featuredata
+final_nomissqrilc_nounk.log <- LogTransform(temp)
+final_nomissqrilc_nounk.log$sampledata <- final_nomissqrilc_nounk$sampledata
+final_nomissqrilc_nounk.log$metabolitedata <- final_nomissqrilc_nounk$metabolitedata
 
 #Linear model fit with moderated statistics
-modFit<-LinearModelFit(featuredata=final_nomissmean_nounk.log$featuredata,
+modFit<-LinearModelFit(featuredata=final_nomissqrilc_nounk.log$featuredata,
                        ruv2=FALSE,
                        moderated=TRUE,
-                       factormat=final_nomissmean_nounk.log$sampledata[1],
-                       outputname = "H:\\Endocrinology\\Green\\Metabolomics papers\\Diet and exercise\\Data\\modFit_mean",
+                       factormat=final_nomissqrilc_nounk.log$sampledata[1],
+                       outputname = "H:\\Endocrinology\\Green\\Metabolomics papers\\Diet and exercise\\Data\\modFit_qrilc",
                        saveoutput = TRUE)
 
 # BoxPlots for significant compounds
-sig <- read.csv(file="H:\\Endocrinology\\Green\\Metabolomics papers\\Diet and exercise\\Data\\modFit_mean.csv")
+sig <- read.csv(file="H:\\Endocrinology\\Green\\Metabolomics papers\\Diet and exercise\\Data\\modFit_qrilc.csv")
 sig <- sig[sig$Adjusted.t.p.value.Group<0.05,]
 keep <- as.matrix(sig$X)
 
@@ -173,11 +162,11 @@ p <- ggplot(data=sig_ord, aes(x=X, y=coeff.Group,ymin=Lower.CI.Group,ymax=Upper.
   theme(axis.text.x = element_text(size=8), text=element_text(size=8))
 
 # trying PCA plot with confidence ellipses
-res.pca <- PCA(final_nomissmean$featuredata, graph = FALSE)
-png("C:\\temp\\pca_mean.png")
+res.pca <- PCA(final_nomissqrilc$featuredata, graph = FALSE)
+png("C:\\temp\\pca_qrilc.png")
 plot1 <- fviz_pca_ind(res.pca,
              geom.ind = "point", # show points only (nbut not "text")
-             col.ind = as.factor(final_nomissmean$sampledata$Group), # color by groups
+             col.ind = as.factor(final_nomissqrilc$sampledata$Group), # color by groups
              palette = c("#00AFBB", "#E7B800"),
              addEllipses = TRUE, # Concentration ellipse
              title=""
@@ -196,7 +185,7 @@ dev.off()
 
 # PLS-DA
 #nomissdf_pcos <- fread("C:\\Temp\\final_nomissmean_featuredata.csv",header=TRUE)
-nomissdf_pcos <- read.csv("H:\\Endocrinology\\Green\\Metabolomics papers\\Diet and exercise\\Data\\mean_imputed_for_plsda.csv")
+nomissdf_pcos <- read.csv("H:\\Endocrinology\\Green\\Metabolomics papers\\Diet and exercise\\Data\\qrilc_imputed_for_plsda.csv")
 nomissdf_pcos <- nomissdf_pcos[,-1]
 nomissdf_pcos <- as.data.frame(nomissdf_pcos)
 for (i in 1:nrow(nomissdf_pcos)) {
@@ -232,7 +221,7 @@ There were `r nrow(sig)` variables significant by moderated t-test.
 
 # PCA plot by PCOS status
 ```{r, echo=FALSE}
-knitr::include_graphics("C:\\temp\\pca_mean.png")
+knitr::include_graphics("C:\\temp\\pca_qrilc.png")
 ```
 
 # Relative log difference for compounds that were significantly different by moderated t-test

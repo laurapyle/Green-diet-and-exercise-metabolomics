@@ -99,6 +99,10 @@ countnomiss(nodiet)
 hist(sapply(diet, function(x) sum(is.na(x))))
 hist(sapply(nodiet, function(x) sum(is.na(x))))
 
+# histogram of percent of missing values
+hist(sapply(diet, function(x) sum(is.na(x))/24*100))
+hist(sapply(nodiet, function(x) sum(is.na(x))/24*100))
+
 # remove variables with <80% observed data (5 observed values)
 diet80 <- diet[, -which(colMeans(is.na(diet)) > 0.8)]
 alldata80 <- alldata[, -which(colMeans(is.na(alldata)) > 0.8)]

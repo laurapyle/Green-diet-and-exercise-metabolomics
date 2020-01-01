@@ -117,6 +117,7 @@ final_nomissrf <- MissingValues(featuredata = final$featuredata,sampledata = fin
 # now we should have an object with featuredata, sampledata, and groupdata
 # impute with rf
 temp <- missForest(final_nomissrf$featuredata)
+final_nomissrf$featuredata <- temp$ximp
 
 # write imputed dataset for reading into PLS-DA
 write.csv(final_nomissrf$featuredata,"H:\\Endocrinology\\Green\\Metabolomics papers\\Diet and exercise\\Data\\rf_imputed_for_plsda.csv")

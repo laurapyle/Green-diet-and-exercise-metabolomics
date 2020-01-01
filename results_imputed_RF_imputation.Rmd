@@ -184,6 +184,14 @@ plot1 + scale_color_manual(labels=c("Control","PCOS"),values= c("#00AFBB", "#E7B
         labs(x="PC1",y="PC2")
 dev.off()
 
+# try a t-test of the individual scores on the PCA
+pcascores <- as.data.frame(res.pca$ind$coord)
+for (i in 1:nrow(pcascores)) {
+  pcascores$PCOS[i] <- ifelse(substring(row.names(pcascores[i,]),1,1)=="P",1,0)
+}
+pcat1 <- t.test(pcascores$Dim.1 ~ pcascores$PCOS)
+pcat2 <- t.test(pcascores$Dim.2 ~ pcascores$PCOS)
+
 # PLS-DA
 #nomissdf_pcos <- fread("C:\\Temp\\final_nomissmean_featuredata.csv",header=TRUE)
 nomissdf_pcos <- read.csv("H:\\Endocrinology\\Green\\Metabolomics papers\\Diet and exercise\\Data\\rf_imputed_for_plsda.csv")
@@ -224,6 +232,10 @@ There were `r nrow(sig)` variables significant by moderated t-test.
 ```{r, echo=FALSE}
 knitr::include_graphics("C:\\temp\\pca_rf.png")
 ```
+
+# Group comparison of individual scores on PCA
+p-value from t-test of component 1: `r pcat1$p.value`
+p-value from t-test of component 1: `r pcat2$p.value`
 
 # Relative log difference for compounds that were significantly different by moderated t-test
 ```{r, echo=F}

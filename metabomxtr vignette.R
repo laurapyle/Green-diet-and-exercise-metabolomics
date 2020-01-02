@@ -1,4 +1,7 @@
 library(metabomxtr)
+library(BiocParallel)
+
+register(SnowParam(exportglobals = FALSE))
 data(metabdata)
 yvars<-colnames(metabdata)[24:27]
 metabdata$PHENO<-relevel(metabdata$PHENO,ref="MomLowFPG")

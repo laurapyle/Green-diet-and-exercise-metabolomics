@@ -37,6 +37,8 @@ library(forcats)
 library(limma)
 library(metabomxtr)
 
+register(SnowParam(exportglobals = FALSE))
+
 # read and transpose data
 #mydata <- read_excel(path="H:\\Endocrinology\\Green\\Metabolomics papers\\Diet and exercise\\Data\\raw data for metaboanalyst no null.xlsx",sheet=1 )
 # read in new dataset from Haseeb with identified unknowns

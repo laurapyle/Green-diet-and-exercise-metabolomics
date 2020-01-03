@@ -10,7 +10,7 @@ editor_options:
 ```{r setup, include=FALSE}
 library(knitr)
 
-knitr::opts_chunk$set(echo = FALSE,cache = FALSE)
+knitr::opts_chunk$set(echo = FALSE)
 
 #source("C:\\Users\\pylell\\Documents\\GitHub\\Green-diet-and-exercise-metabolomics\\analysis_nounk_nomiss.r")
 
@@ -36,6 +36,7 @@ library(gdata)
 library(forcats)
 library(limma)
 library(metabomxtr)
+library(BiocParallel)
 
 register(SnowParam(exportglobals = FALSE))
 
@@ -126,16 +127,20 @@ final_nomiss_nounk.log$sampledata <- final_nomiss_nounk$sampledata
 final_nomiss_nounk.log$metabolitedata <- final_nomiss_nounk$metabolitedata
 
 # add variable for PCOS
-nomissdf_pcos <- final_nomiss.log$featuredata
+# NOTE: DEBUG CODE USING ONLY KNOWNS
+#nomissdf_pcos <- final_nomiss.log$featuredata
+nomissdf_pcos <- final_nomiss_nounk.log$featuredata
 nomissdf_pcos <- as.data.frame(nomissdf_pcos)
 for (i in 1:nrow(nomissdf_pcos)) {
  nomissdf_pcos$PCOS[i] <- ifelse(substring(row.names(nomissdf_pcos[i,]),1,1)=="P",1,0)
 }
-nomissdf_pcos <- cbind(nomissdf_pcos[,6745],nomissdf_pcos[1:6744])
-colnames(nomissdf_pcos) <- c("PCOS",colnames(nomissdf_pcos[,2:6745]))
+#nomissdf_pcos <- cbind(nomissdf_pcos[,6745],nomissdf_pcos[1:6744])
+#colnames(nomissdf_pcos) <- c("PCOS",colnames(nomissdf_pcos[,2:6745]))
+nomissdf_pcos <- cbind(nomissdf_pcos[,ncol(nomissdf_pcos)],nomissdf_pcos[1:ncol(nomissdf_pcos)-1])
+colnames(nomissdf_pcos) <- c("PCOS",colnames(nomissdf_pcos[,2:ncol(nomissdf_pcos)]))
 
 # choose vars of interest
-yvars <- colnames(nomissdf_pcos)[2:6745]
+yvars <- colnames(nomissdf_pcos)[2:ncol(nomissdf_pcos)]
 table(apply(nomissdf_pcos[,yvars],2,function(x){sum(is.na(x))}))
 
 # examine a few distributions
@@ -148,8 +153,33 @@ hist(nomissdf_pcos$`c18:2-Linoleyl carnitine`  ,main="Pc18:2-Linoleyl carnitine"
 # set reference group to controls
 nomissdf_pcos$PCOS <- as.factor(as.character(nomissdf_pcos$PCOS))
 nomissdf_pcos$PCOS <- relevel(nomissdf_pcos$PCOS,ref="0")
+fullModel <- ~PCOS|PCOS
+reducedModel <- ~1|1
+fullModelResults<-mxtrmod(ynames=yvars,mxtrModel=fullModel,data=nomissdf_pcos,nNA=3)
+reducedModelResults <- mxtrmod(ynames=yvars,mxtrModel = reducedModel,data=nomissdf_pcos,fullModel = fullModel,nNA=3)
+finalResult<-mxtrmodLRT(fullmod=fullModelResults,redmod=reducedModelResults,adj="BH")
 
-fullModel <- ~PCOS
-reducedModel <- ~1
+# how many tests are significant?
+sig <- nrow(finalResult[finalResult$adjP<0.05,])
 
-fullModelResults<-mxtrmod(ynames=yvars,mxtrModel=fullModel,data=nomissdf_pcos)
+# put together results table
+PCOS.Prop<-round(exp(fullModelResults$xInt+fullModelResults$x_PCOS1)/ (1+exp(fullModelResults$xInt+fullModelResults$x_PCOS1)),digits=2)
+Control.Prop<-round(exp(fullModelResults$xInt)/(1+exp(fullModelResults$xInt)),digits=2)
+PCOS.Mean<-round(fullModelResults$zInt+fullModelResults$z_PCOS1,digits=2)
+Control.Mean<-round(fullModelResults$zInt,digits=2)
+PCOS.MeanDiff<-round(fullModelResults$z_PCOS1,digits=2)
+finalResultTable<-data.frame(Metabolite=fullModelResults$.id,PCOS.Prop=PCOS.Prop,
+                             Control.Prop=Control.Prop,PCOS.Mean=PCOS.Mean,
+                             Control.Mean=Control.Mean,Mean.Difference=PCOS.MeanDiff,
+                             FDR.Adj.P=round(finalResult$adjP,digits=4))
+finalResultTable[is.na(finalResultTable$PCOS.Prop),]$PCOS.Prop <- 
+
+# testing model on metabdata
+#data(metabdata)
+#yvars <- colnames(metabdata)[10:ncol(metabdata)]
+#yvars<-colnames(metabdata)[24:27]
+#metabdata$PHENO<-relevel(metabdata$PHENO,ref="MomLowFPG")
+#fullModel <- ~PHENO|PHENO
+#reducedModel <- ~1
+#fullModelResults<-mxtrmod(ynames=yvars,mxtrModel=fullModel,data=metabdata)
+

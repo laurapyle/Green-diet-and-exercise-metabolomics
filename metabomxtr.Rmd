@@ -128,8 +128,8 @@ final_nomiss_nounk.log$metabolitedata <- final_nomiss_nounk$metabolitedata
 
 # add variable for PCOS
 # NOTE: DEBUG CODE USING ONLY KNOWNS
-#nomissdf_pcos <- final_nomiss.log$featuredata
-nomissdf_pcos <- final_nomiss_nounk.log$featuredata
+nomissdf_pcos <- final_nomiss.log$featuredata
+#nomissdf_pcos <- final_nomiss_nounk.log$featuredata
 nomissdf_pcos <- as.data.frame(nomissdf_pcos)
 for (i in 1:nrow(nomissdf_pcos)) {
  nomissdf_pcos$PCOS[i] <- ifelse(substring(row.names(nomissdf_pcos[i,]),1,1)=="P",1,0)
@@ -172,7 +172,8 @@ finalResultTable<-data.frame(Metabolite=fullModelResults$.id,PCOS.Prop=PCOS.Prop
                              Control.Prop=Control.Prop,PCOS.Mean=PCOS.Mean,
                              Control.Mean=Control.Mean,Mean.Difference=PCOS.MeanDiff,
                              FDR.Adj.P=round(finalResult$adjP,digits=4))
-finalResultTable[is.na(finalResultTable$PCOS.Prop),]$PCOS.Prop <- 
+
+finalResultTable[finalResultTable$FDR.Adj.P<0.05,]
 
 # testing model on metabdata
 #data(metabdata)
@@ -182,4 +183,5 @@ finalResultTable[is.na(finalResultTable$PCOS.Prop),]$PCOS.Prop <-
 #fullModel <- ~PHENO|PHENO
 #reducedModel <- ~1
 #fullModelResults<-mxtrmod(ynames=yvars,mxtrModel=fullModel,data=metabdata)
+
 

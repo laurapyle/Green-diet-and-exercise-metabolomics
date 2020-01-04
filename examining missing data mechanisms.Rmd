@@ -87,12 +87,21 @@ nodiet <- alldata[alldata$Batch=="No-diet",]
 # how many compounds have no missing data
 countnomiss <- function(data) {
   tempct <- sapply(data, function(x) sum(is.na(x)))
-  tempct <- ifelse(tempct==21,1,0)
+  tempct <- ifelse(tempct==0,1,0)
   a <- sum(tempct)
   return(a)
 }
 countnomiss(diet)
 countnomiss(nodiet)
+
+
+countnomiss <- function(data) {
+  tempct <- sapply(data, function(x) sum(is.na(x)))
+  tempct <- ifelse(tempct==0,1,0)
+  a <- sum(tempct)
+  return(a)
+}
+countnomiss(alldata)
 # more variables without missing data under diet condition
 
 # histogram of number of missing values

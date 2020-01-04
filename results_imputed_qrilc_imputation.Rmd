@@ -140,12 +140,21 @@ final_nomissqrilc_nounk.log$sampledata <- final_nomissqrilc_nounk$sampledata
 final_nomissqrilc_nounk.log$metabolitedata <- final_nomissqrilc_nounk$metabolitedata
 
 #Linear model fit with moderated statistics
-modFit<-LinearModelFit(featuredata=final_nomissqrilc_nounk.log$featuredata,
+modFit<-LinearModelFit(featuredata=final_nomissqrilc.log$featuredata,
                        ruv2=FALSE,
                        moderated=TRUE,
-                       factormat=final_nomissqrilc_nounk.log$sampledata[1],
+                       factormat=final_nomissqrilc.log$sampledata[1],
                        outputname = "H:\\Endocrinology\\Green\\Metabolomics papers\\Diet and exercise\\Data\\modFit_qrilc",
                        saveoutput = TRUE)
+
+#trying non-moderated statistics
+ordFit<-LinearModelFit(featuredata=final_nomissqrilc.log$featuredata,
+                       ruv2=FALSE,
+                       moderated=FALSE,
+                       factormat=final_nomissqrilc.log$sampledata[1],
+                       outputname = "H:\\Endocrinology\\Green\\Metabolomics papers\\Diet and exercise\\Data\\ordFit_qrilc",
+                       saveoutput = TRUE)
+ordFit_sig <- nrow(ordFit[ordFit$adj.p.value<0.05,])
 
 # BoxPlots for significant compounds
 sig <- read.csv(file="H:\\Endocrinology\\Green\\Metabolomics papers\\Diet and exercise\\Data\\modFit_qrilc.csv")
@@ -222,10 +231,19 @@ pcos.perf.splsda = perf(splsda.pcos, validation = 'Mfold', folds = 3,
 pcos.perf.splsda$error.rate
 auc_save <- pcos.perf.splsda$auc
 
+# coding t-test myself
+tdf <- as.data.frame(nomissdf_pcos)
+p_unadj <- NULL
+for (i in 2:(ncol(tdf))) {
+  p_unadj[i-1] <- t.test(as.formula(paste0("`",colnames(tdf[i]),"`", "~PCOS")), data = tdf)$p.value
+}
+p_adj <- p.adjust(p_unadj,method = "BH")
+check_sig <- length(p_adj[p_adj<0.05])
+
 
 ```
 
-There were `r nrow(sig)` variables significant by moderated t-test.
+There were `r check_sig` variables significant by moderated t-test.
 
 # PCA plot by PCOS status
 ```{r, echo=FALSE}

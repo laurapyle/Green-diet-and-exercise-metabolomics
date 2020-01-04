@@ -132,12 +132,21 @@ final_nomisshalfmin_nounk.log$sampledata <- final_nomisshalfmin_nounk$sampledata
 final_nomisshalfmin_nounk.log$metabolitedata <- final_nomisshalfmin_nounk$metabolitedata
 
 #Linear model fit with moderated statistics
-modFit<-LinearModelFit(featuredata=final_nomisshalfmin_nounk.log$featuredata,
+modFit<-LinearModelFit(featuredata=final_nomisshalfmin.log$featuredata,
                        ruv2=FALSE,
                        moderated=TRUE,
-                       factormat=final_nomisshalfmin_nounk.log$sampledata[1],
+                       factormat=final_nomisshalfmin.log$sampledata[1],
                        outputname = "H:\\Endocrinology\\Green\\Metabolomics papers\\Diet and exercise\\Data\\modFit_halfmin",
                        saveoutput = TRUE)
+# trying nonmoderated statistics
+ordFit<-LinearModelFit(featuredata=final_nomisshalfmin.log$featuredata,
+                       ruv2=FALSE,
+                       moderated=FALSE,
+                       factormat=final_nomisshalfmin.log$sampledata[1],
+                       outputname = "H:\\Endocrinology\\Green\\Metabolomics papers\\Diet and exercise\\Data\\ordFit_halfmin",
+                       saveoutput = TRUE)
+ordFit_sig <- nrow(ordFit[ordFit$adj.p.value<0.05,])
+
 
 # BoxPlots for significant compounds
 sig <- read.csv(file="H:\\Endocrinology\\Green\\Metabolomics papers\\Diet and exercise\\Data\\modFit_halfmin.csv")
@@ -211,10 +220,19 @@ pcos.perf.splsda = perf(splsda.pcos, validation = 'Mfold', folds = 3,
 pcos.perf.splsda$error.rate
 auc_save <- pcos.perf.splsda$auc
 
+# coding t-test myself
+tdf <- as.data.frame(nomissdf_pcos)
+p_unadj <- NULL
+for (i in 1:(ncol(tdf)-1)) {
+  print(paste0("`",colnames(tdf[i]),"`", "~PCOS"))
+  p_unadj[i] <- t.test(as.formula(paste0("`",colnames(tdf[i]),"`", "~PCOS")), data = tdf)$p.value
+}
+p_adj <- p.adjust(p_unadj,method = "BH")
+check_sig <- length(p_adj[p_adj<0.05])
 
 ```
 
-There were `r nrow(sig)` variables significant by moderated t-test.
+There were `r check_sig` variables significant by moderated t-test.
 
 # PCA plot by PCOS status
 ```{r, echo=FALSE}

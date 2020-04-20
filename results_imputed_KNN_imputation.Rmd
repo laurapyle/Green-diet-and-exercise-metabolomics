@@ -214,7 +214,9 @@ for (i in 2:(ncol(tdf))) {
   p_unadj[i-1] <- t.test(as.formula(paste0("`",colnames(tdf[i]),"`", "~PCOS")), data = tdf)$p.value
 }
 p_adj <- p.adjust(p_unadj,method = "BH")
+p_adj <- cbind(as.data.frame(colnames(tdf[2:ncol(tdf)])),p_adj)
 check_sig <- length(p_adj[p_adj<0.05])
+sigcomp <- p_adj[p_adj$p_adj<0.05,]
 
 ```
 

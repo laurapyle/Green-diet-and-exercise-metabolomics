@@ -434,7 +434,11 @@ plotIndiv(splsda.pcos, comp = c(1,2),
 set.seed(34)  # for reproducible results for this code
 #pcos.perf.splsda = perf(splsda.pcos, validation = 'Mfold', folds = 3,
   #                      progressBar = FALSE, nrepeat = 10, dist = 'max.dist',auc=TRUE)
-
+pcos.perf.splsda = perf(splsda.pcos, validation = 'Mfold', folds = 5, 
+                           progressBar = FALSE, nrepeat = 10, dist = 'max.dist',auc=TRUE)
+pcos.perf.splsda$error.rate
+pcos.perf.splsda$auc$comp1[1]
+x <- auroc(pcos.perf.splsda)
 
 # try sPLS-DA for PCOS vs. control in diet and fasting samples separately
 gooddata.pcos.diet <- gooddata.format[gooddata.format$Group==1,]

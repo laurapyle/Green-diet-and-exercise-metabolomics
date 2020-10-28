@@ -14,7 +14,7 @@ knitr::opts_chunk$set(echo = FALSE,cache = FALSE)
 
 #source("C:\\Users\\pylell\\Documents\\GitHub\\Green-diet-and-exercise-metabolomics\\analysis_nounk_nomiss.r")
 
-setwd("H:\\Endocrinology\\Green\\Metabolomics papers\\Diet and exercise\\Data\\")
+setwd("E:\\Melanie Green\\Metabolomics papers\\Diet and exercise\\Data\\")
 
 library(readxl)
 # load NormalizeMets first, metabolomics second
@@ -41,7 +41,7 @@ library(limma)
 # read and transpose data
 #mydata <- read_excel(path="H:\\Endocrinology\\Green\\Metabolomics papers\\Diet and exercise\\Data\\raw data for metaboanalyst no null.xlsx",sheet=1 )
 # read in new dataset from Haseeb with identified unknowns
-mydata <- read_excel(path="H:\\Endocrinology\\Green\\Metabolomics papers\\Diet and exercise\\Data\\updated data with identified unknowns 1.2.19 no null.xlsx",sheet=1 )
+mydata <- read_excel(path="E:\\Melanie Green\\Metabolomics papers\\Diet and exercise\\Data\\updated data with identified unknowns 1.2.19 no null.xlsx",sheet=1 )
 mydata <- as.data.frame(mydata)
 mydata <- mydata[!is.na(mydata$Name),]
 alldata <- as.data.frame(t(mydata[,-1]))
@@ -133,11 +133,11 @@ dietmat_nounk$featuredata<-nomissdf_nounk.log$featuredata[which(nomissdf_nounk.l
 nodietmat_nounk$featuredata<-nomissdf_nounk.log$featuredata[which(nomissdf_nounk.log$featuredata[,1]==0),-1]
 
 #Linear model fit with ordinary statistics
-ordFit<-LinearModelFit(featuredata=data.matrix(dietmat_nounk$featuredata-nodietmat_nounk$featuredata),
-                       ruv2=FALSE,
-                       factormat=matrix(1,nrow=nrow(dietmat_nounk$featuredata)),
-                       outputname = "H:\\Endocrinology\\Green\\Metabolomics papers\\Diet and exercise\\Data\\ordFit",
-                       saveoutput = TRUE)
+# ordFit<-LinearModelFit(featuredata=data.matrix(dietmat_nounk$featuredata-nodietmat_nounk$featuredata),
+#                        ruv2=FALSE,
+#                        factormat=matrix(1,nrow=nrow(dietmat_nounk$featuredata)),
+#                        outputname = "H:\\Endocrinology\\Green\\Metabolomics papers\\Diet and exercise\\Data\\ordFit",
+#                        saveoutput = TRUE)
 # TwoGroupPlots(nomissdf_nounk.log$featuredata[,-1],
 #               tstats = ordFit$t[,1],
 #               foldchanges = ordFit$coef[,1],
@@ -150,16 +150,17 @@ ordFit<-LinearModelFit(featuredata=data.matrix(dietmat_nounk$featuredata-nodietm
 # testing limma
 limtest <- lmFit(data.matrix(t(dietmat_nounk$featuredata)-t(nodietmat_nounk$featuredata)),
                  factormat=matrix(1,nrow=nrow(t(dietmat_nounk$featuredata))))
+limtest2 <- eBayes(limtest)
 
 # write dataframe to file so I can compare to metabolomics
-write.csv(dietmat_nounk$featuredata-nodietmat_nounk$featuredata,"H:\\Endocrinology\\Green\\Metabolomics papers\\Diet and exercise\\Data\\diet minus nodiet.csv")
+write.csv(dietmat_nounk$featuredata-nodietmat_nounk$featuredata,"E:\\Melanie Green\\Metabolomics papers\\Diet and exercise\\Data\\diet minus nodiet.csv")
 
 #Linear model fit with moderated statistics
 modFit<-LinearModelFit(featuredata=data.matrix(dietmat_nounk$featuredata-nodietmat_nounk$featuredata),
                        ruv2=FALSE,
                        moderated=TRUE,
                        factormat=matrix(1,nrow=nrow(dietmat_nounk$featuredata)),
-                       outputname = "H:\\Endocrinology\\Green\\Metabolomics papers\\Diet and exercise\\Data\\modFit",
+                       outputname = "E:\\Melanie Green\\Metabolomics papers\\Diet and exercise\\Data\\modFit",
                        saveoutput = TRUE)
 # TwoGroupPlots(nomissdf_nounk.log[,-1],
 #               tstats = modFit$t[,1],
@@ -178,7 +179,7 @@ modFit<-LinearModelFit(featuredata=data.matrix(dietmat_nounk$featuredata-nodietm
 #               pcutoff = 0.05)
 
 # BoxPlots for significant compounds
-sig <- read.csv(file="H:\\Endocrinology\\Green\\Metabolomics papers\\Diet and exercise\\Data\\modFit.csv")
+sig <- read.csv(file="E:\\Melanie Green\\Metabolomics papers\\Diet and exercise\\Data\\modFit.csv")
 sig <- sig[sig$Adjusted.t.p.value.x1<0.05,]
 keep <- as.matrix(sig$X)
 
@@ -197,32 +198,32 @@ fc_nounk$Compound <- rownames(fc_nounk)
 fc_nounk <- as.data.frame(fc_nounk[,-1])
 colnames(fc_nounk) <- c("FC","X")
 # merge fold change with results of moderated t-test for input into Metscape
-temp <- read.csv("H:\\Endocrinology\\Green\\Metabolomics papers\\Diet and exercise\\Data\\modFit_nounk.csv")
+temp <- read.csv("E:\\Melanie Green\\Metabolomics papers\\Diet and exercise\\Data\\modFit_nounk.csv")
 metscape <- merge(temp,fc_nounk,by="X")
 metscape <- metscape[,c(1,8,10)]
-annotated <- read.csv("H:\\Endocrinology\\Green\\Metabolomics papers\\Diet and exercise\\Data\\formetscape_clean.csv")
+annotated <- read.csv("E:\\Melanie Green\\Metabolomics papers\\Diet and exercise\\Data\\formetscape_clean.csv")
 annotated <- annotated[,c(1:2)]
 metscape <- merge(metscape,annotated,by="X")
-write.csv(metscape,"H:\\Endocrinology\\Green\\Metabolomics papers\\Diet and exercise\\Data\\formetscape_imputed.csv")
+write.csv(metscape,"E:\\Melanie Green\\Metabolomics papers\\Diet and exercise\\Data\\formetscape_imputed.csv")
 
 # Volcano plot using moderated t-test
-modfit_nona <- modFit[!is.na(modFit$p.value),]
-VolcanoPlot(coef=modfit_nona$coefficients[,1], pvals=modfit_nona$adj.p.value[,1],plimit=0.05,interactiveonly = FALSE,ylab="-log(q-value)",labelsig = FALSE, fclabel = "q<0.05")
+# modfit_nona <- modFit[!is.na(modFit$p.value),]
+# VolcanoPlot(coef=modfit_nona$coefficients[,1], pvals=modfit_nona$adj.p.value[,1],plimit=0.05,interactiveonly = FALSE,ylab="-log(q-value)",labelsig = FALSE, fclabel = "q<0.05")
 
 # Volcano plot using ordinary t-test
-test <- LinearModelFit(featuredata = data.matrix(dietmat_nounk$featuredata-nodietmat_nounk$featuredata),
-                                      ruv2=FALSE,
-                                      factormat=matrix(1,nrow=nrow(dietmat_nounk$featuredata)),
-                                      saveoutput = FALSE)
-coef_test <- test$coefficients
-coef_test <- as.vector(coef_test)
-temp_names <- row.names(test$coefficients)
-for (i in 1:length(temp_names)) {
-  temp_names[i] <- sub("\\(.*","",temp_names[i])
-}
-names(coef_test) <- temp_names
-NormalizeMets::VolcanoPlot(coef=coef_test,pvals =as.vector(test$p.value),labelsig = TRUE,cexlab=0.5,
-                           main="",interactiveplot = TRUE,xlim=c(-4,8))
+# test <- LinearModelFit(featuredata = data.matrix(dietmat_nounk$featuredata-nodietmat_nounk$featuredata),
+#                                       ruv2=FALSE,
+#                                       factormat=matrix(1,nrow=nrow(dietmat_nounk$featuredata)),
+#                                       saveoutput = FALSE)
+# coef_test <- test$coefficients
+# coef_test <- as.vector(coef_test)
+# temp_names <- row.names(test$coefficients)
+# for (i in 1:length(temp_names)) {
+#   temp_names[i] <- sub("\\(.*","",temp_names[i])
+# }
+# names(coef_test) <- temp_names
+# NormalizeMets::VolcanoPlot(coef=coef_test,pvals =as.vector(test$p.value),labelsig = TRUE,cexlab=0.5,
+#                            main="",interactiveplot = TRUE,xlim=c(-4,8))
 
 # for some of the analyses in NormalizeMets, need separate dfs with feature data and group data
 nomissdf_nounk.log.nm <- NULL
@@ -316,7 +317,7 @@ demo$id <- gsub("P", "", demo$id)
 demo$id <- gsub("C", "", demo$id)
 demo$id <- gsub("diet", "", demo$id)
 demo$id <- gsub("No-", "", demo$id)
-temp <- read.csv("H:\\Endocrinology\\Green\\Metabolomics papers\\Diet and exercise\\Data\\demographics.csv")
+temp <- read.csv("E:\\Melanie Green\\Metabolomics papers\\Diet and exercise\\Data\\demographics.csv")
 temp <- temp[c("subject_id","age","gender","ethnicity","tanner","bmi_percentile")]
 temp$id <- gsub("6164-", "", temp$subject_id) 
 demo <- merge(demo,temp,by="id")
@@ -431,14 +432,14 @@ splsda.pcos = splsda(X = nomiss.plsda_pcos[,c(4:6694)], Y=as.factor(nomiss.plsda
 plotIndiv(splsda.pcos, comp = c(1,2),
           ind.names = FALSE,
           ellipse = TRUE, legend = TRUE)
-set.seed(34)  # for reproducible results for this code
+set.seed(3654)  # for reproducible results for this code
 #pcos.perf.splsda = perf(splsda.pcos, validation = 'Mfold', folds = 3,
   #                      progressBar = FALSE, nrepeat = 10, dist = 'max.dist',auc=TRUE)
-pcos.perf.splsda = perf(splsda.pcos, validation = 'Mfold', folds = 5, 
-                           progressBar = FALSE, nrepeat = 10, dist = 'max.dist',auc=TRUE)
-pcos.perf.splsda$error.rate
-pcos.perf.splsda$auc$comp1[1]
-x <- auroc(pcos.perf.splsda)
+# pcos.perf.splsda = perf(splsda.pcos, validation = 'loo', 
+#                            progressBar = FALSE, nrepeat = 10, dist = 'max.dist',auc=TRUE)
+# pcos.perf.splsda$error.rate
+# pcos.perf.splsda$auc$comp1[1]
+# x <- auroc(pcos.perf.splsda)
 
 # try sPLS-DA for PCOS vs. control in diet and fasting samples separately
 gooddata.pcos.diet <- gooddata.format[gooddata.format$Group==1,]
@@ -615,8 +616,8 @@ knitr::include_graphics("C:\\temp\\indplot_4group.png")
 
 # Volcano plot
 ```{r, echo=FALSE}
-suppressPackageStartupMessages(library(NormalizeMets))
-VolcanoPlot(coef=modfit_nona$coefficients[,1], pvals=modfit_nona$adj.p.value[,1],plimit=0.05,interactiveonly = FALSE,ylab="-log(q-value)",labelsig = FALSE)
+# suppressPackageStartupMessages(library(NormalizeMets))
+# VolcanoPlot(coef=modfit_nona$coefficients[,1], pvals=modfit_nona$adj.p.value[,1],plimit=0.05,interactiveonly = FALSE,ylab="-log(q-value)",labelsig = FALSE)
 ```
 
 # Relative log difference for compounds that were significantly different by moderated t-test

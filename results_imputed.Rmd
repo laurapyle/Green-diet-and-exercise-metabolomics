@@ -30,13 +30,12 @@ library(dplyr)
 library(mixOmics)
 library(Hmisc)
 library("FactoMineR")
-
-
 library("factoextra")
 library(tableone)
 library(gdata)
 library(forcats)
 library(limma)
+library(plotly)
 
 # read and transpose data
 #mydata <- read_excel(path="H:\\Endocrinology\\Green\\Metabolomics papers\\Diet and exercise\\Data\\raw data for metaboanalyst no null.xlsx",sheet=1 )
@@ -63,6 +62,8 @@ colnames(alldata) <- str_remove(colnames(alldata),fixed(" (M+Na)+"))
 source("C:\\Users\\pylell\\Documents\\GitHub\\General-code\\temp_table1.r")
 source("C:\\Users\\pylell\\Documents\\GitHub\\General-code\\foldchange.r")
 source("C:\\Users\\pylell\\Documents\\GitHub\\General-code\\editcolnames.r")
+source("C:\\Users\\pylell\\Documents\\GitHub\\General-code\\modified volcano plot.r")
+
 
 # create variable for ID
 for (i in 1:nrow(alldata)) {
@@ -189,7 +190,7 @@ sig_ord <- sig_ord %>% arrange(coeff.x1)
 sig_ord$X <- with(sig_ord, reorder(X,coeff.x1))
 p <- ggplot(data=sig_ord, aes(x=X, y=coeff.x1,ymin=Lower.CI.x1,ymax=Upper.CI.x1)) + 
   geom_pointrange() + geom_hline(yintercept=0, lty=2) +
-  coord_flip() + xlab("") + ylab("Mean Log Difference (Diet-No Diet)") +
+  coord_flip() + xlab("") + ylab("Mean Log Difference (Controlled fasting-Typical fasting)") +
   theme(axis.text.x = element_text(size=8), text=element_text(size=8))
 
 # get fold change for knowns
@@ -207,8 +208,8 @@ metscape <- merge(metscape,annotated,by="X")
 write.csv(metscape,"E:\\Melanie Green\\Metabolomics papers\\Diet and exercise\\Data\\formetscape_imputed.csv")
 
 # Volcano plot using moderated t-test
-# modfit_nona <- modFit[!is.na(modFit$p.value),]
-# VolcanoPlot(coef=modfit_nona$coefficients[,1], pvals=modfit_nona$adj.p.value[,1],plimit=0.05,interactiveonly = FALSE,ylab="-log(q-value)",labelsig = FALSE, fclabel = "q<0.05")
+modfit_nona <- modFit[!is.na(modFit$p.value),]
+VolcanoPlot(coef=modfit_nona$coefficients[,1], pvals=modfit_nona$adj.p.value[,1],plimit=0.05,interactiveonly = FALSE,ylab="-log(q-value)",labelsig = FALSE, fclabel = "q<0.05",main="")
 
 # Volcano plot using ordinary t-test
 # test <- LinearModelFit(featuredata = data.matrix(dietmat_nounk$featuredata-nodietmat_nounk$featuredata),
@@ -369,7 +370,7 @@ splsda.diet30 = splsda(X = nomiss.plsda[,c(4:168)], Y=as.factor(nomiss.plsda$Gro
                    ncomp = 3, multilevel = as.factor(nomiss.plsda$id),keepX = 30)
 dev.new()
 cim(splsda.diet30, row.sideColors = color.mixo(as.factor(nomiss.plsda$Group)), row.names = FALSE, col.names=TRUE,
-    legend=list(legend=c("No Diet","Diet")),
+    legend=list(legend=c("Typical Fasting","Controlled Fasting")),
     save="jpeg",
     name.save = "C:\\temp\\cim",margins =c(20,20) )
 dev.off()
@@ -393,7 +394,7 @@ plotIndiv(splsda.diet.unk, comp = c(1,2),
 listvarunk <- selectVar(splsda.diet.unk)
 set.seed(34)  # for reproducible results for this code
 dietunk.perf.splsda = perf(splsda.diet.unk, validation = 'Mfold', folds = 5, 
-                           progressBar = FALSE, nrepeat = 10, dist = 'max.dist',auc=TRUE)
+                           progressBar = FALSE, nrepeat = 10, dist = 'all',auc=TRUE)
 dietunk.perf.splsda$error.rate
 plot(dietunk.perf.splsda)
 auc_save_unk <- dietunk.perf.splsda$auc$comp1[1]
@@ -407,8 +408,8 @@ for (i in 1:nrow(gooddata.pcos)) {
   gooddata.pcos$PCOS[i] <- ifelse(substring(row.names(gooddata.pcos[i,]),1,1)=="P",1,0)
 }
 gooddata.pcos$Group <- gooddata.pcos$PCOS
-nomiss.pcos <- MissingValues(gooddata.pcos,feature.cutoff = 0.95,sample.cutoff = 0.8,saveoutput = TRUE,
-                        outputname = "C:\\Temp\\newoutput_pcos")
+nomiss.pcos <- MissingValues(gooddata.pcos,feature.cutoff = 0.95,sample.cutoff = 0.8,saveoutput = TRUE, featuremax.knn = 0.8,
+                        outputname = "C:\\Temp\\newoutput_pcos",method = "knn")
 nomissdf_pcos <- fread("C:\\Temp\\newoutput_pcos_featuredata.csv",header=TRUE)
 nomissdf_pcos <- nomissdf_pcos[,-1]
 nomissdf_pcos <- as.data.frame(nomissdf_pcos)
@@ -428,18 +429,17 @@ nomiss.plsda_pcos$id <- gsub("diet", "", nomiss.plsda_pcos$id)
 nomiss.plsda_pcos$id <- gsub("No-", "", nomiss.plsda_pcos$id)
 nomiss.plsda_pcos <- nomiss.plsda_pcos[,c(1,6695,6696,2:6694)]
 splsda.pcos = splsda(X = nomiss.plsda_pcos[,c(4:6694)], Y=as.factor(nomiss.plsda_pcos$PCOS),
-                     ncomp = 2, multilevel = as.factor(nomiss.plsda_pcos$id),max.iter = 100000,near.zero.var=TRUE,tol=0.1)
+                     ncomp = 2, multilevel = as.factor(nomiss.plsda_pcos$id),max.iter = 100000,near.zero.var = T,
+                     tol=0.2)
 plotIndiv(splsda.pcos, comp = c(1,2),
           ind.names = FALSE,
           ellipse = TRUE, legend = TRUE)
+a <- predict(splsda.pcos,newdata = nomiss.plsda_pcos[,c(4:6696)])
 set.seed(3654)  # for reproducible results for this code
-#pcos.perf.splsda = perf(splsda.pcos, validation = 'Mfold', folds = 3,
-  #                      progressBar = FALSE, nrepeat = 10, dist = 'max.dist',auc=TRUE)
-# pcos.perf.splsda = perf(splsda.pcos, validation = 'loo', 
-#                            progressBar = FALSE, nrepeat = 10, dist = 'max.dist',auc=TRUE)
-# pcos.perf.splsda$error.rate
-# pcos.perf.splsda$auc$comp1[1]
-# x <- auroc(pcos.perf.splsda)
+pcos.perf.splsda = perf(splsda.pcos, validation = 'Mfold', folds = 3,
+                      progressBar = FALSE, nrepeat = 10, dist = 'all',auc=FALSE)
+pcos.perf.splsda$error.rate
+#pcos.perf.splsda$auc$comp1[1]
 
 # try sPLS-DA for PCOS vs. control in diet and fasting samples separately
 gooddata.pcos.diet <- gooddata.format[gooddata.format$Group==1,]
@@ -616,12 +616,12 @@ knitr::include_graphics("C:\\temp\\indplot_4group.png")
 
 # Volcano plot
 ```{r, echo=FALSE}
-# suppressPackageStartupMessages(library(NormalizeMets))
-# VolcanoPlot(coef=modfit_nona$coefficients[,1], pvals=modfit_nona$adj.p.value[,1],plimit=0.05,interactiveonly = FALSE,ylab="-log(q-value)",labelsig = FALSE)
+suppressPackageStartupMessages(library(NormalizeMets))
+ModVolcanoPlot(coef=modfit_nona$coefficients[,1], pvals=modfit_nona$adj.p.value[,1],plimit=0.05,interactiveonly = FALSE,ylab="-log(q-value)",labelsig = FALSE,main="")
 ```
 
 # Relative log difference for compounds that were significantly different by moderated t-test
-```{r, echo=F}
+```{r, echo=F, fig.width=6}
 p
 ```
 
@@ -645,7 +645,7 @@ knitr::include_graphics("C:\\temp\\cim.jpeg")
 suppressPackageStartupMessages(library(mixOmics))
 plotIndiv(splsda.diet.unk, comp = c(1,2),
           ind.names = FALSE, 
-          ellipse = TRUE, legend = TRUE, title="")
+          ellipse = TRUE, legend = FALSE, title="")
 ```
 
 # ROC for diet vs. no diet classification, using all metabolites
@@ -673,7 +673,7 @@ for (i in 1:length(keep)) {
 suppressPackageStartupMessages(library(mixOmics))
 plotIndiv(splsda.pcos, comp = c(1,2),
           ind.names = FALSE,
-          ellipse = TRUE, legend = TRUE,title="")
+          ellipse = TRUE, legend = FALSE,title="")
 ```
 
 # Evaluation of sPLS-DA model for PCOS
@@ -684,7 +684,7 @@ plotIndiv(splsda.pcos, comp = c(1,2),
 ```{r, echo=FALSE}
 plotIndiv(splsda.pcos.diet, comp = c(1,2),
           ind.names = FALSE,
-          ellipse = TRUE, legend = TRUE,title="")
+          ellipse = TRUE, legend = FALSE,title="")
 ```
 
 # Evaluation of sPLS-DA model for clamp visit only
@@ -695,7 +695,7 @@ plotIndiv(splsda.pcos.diet, comp = c(1,2),
 ```{r, echo=FALSE}
 plotIndiv(splsda.pcos.nodiet, comp = c(1,2),
           ind.names = FALSE,
-          ellipse = TRUE, legend = TRUE,title="")
+          ellipse = TRUE, legend = FALSE,title="")
 ```
 
 # Evaluation of sPLS-DA model for fasting visit only
